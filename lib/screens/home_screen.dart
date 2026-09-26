@@ -384,7 +384,7 @@ class _EmptyState extends StatelessWidget {
                 width: 238,
                 height: 260,
                 child: Image.asset(
-                  'assets/AssetsDesign/메모하는울디.png',
+                  'assets/AssetsDesign/wooldy_writing.png',
                   fit: BoxFit.contain,
                 ),
               ),
@@ -475,8 +475,8 @@ class _HomeBannerState extends State<_HomeBanner> {
             bottom: completed ? -2 : -5,
             child: Image.asset(
               completed
-                  ? 'assets/AssetsDesign/기록완료울디.png'
-                  : 'assets/AssetsDesign/푸시알림울디.png',
+                  ? 'assets/AssetsDesign/wooldy_done.png'
+                  : 'assets/AssetsDesign/wooldy_bell.png',
               width: completed ? 176 : 124,
               height: completed ? 190 : 100,
               fit: BoxFit.contain,
