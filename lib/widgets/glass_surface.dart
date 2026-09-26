@@ -22,9 +22,8 @@ class GlassSurface extends StatelessWidget {
     required this.child,
   });
 
-  BorderRadius get _borderRadius => capsule
-      ? BorderRadius.circular(999)
-      : BorderRadius.circular(radius);
+  BorderRadius get _borderRadius =>
+      capsule ? BorderRadius.circular(999) : BorderRadius.circular(radius);
 
   @override
   Widget build(BuildContext context) {
@@ -71,5 +70,93 @@ class GlassSurface extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// Figma-shaped navigation rail with separate native glass shapes on iOS.
+/// The Flutter child remains responsible for content and gestures.
+class GlassTabBarSurface extends StatefulWidget {
+  const GlassTabBarSurface({
+    super.key,
+    required this.selectedIndex,
+    required this.position,
+    required this.dragging,
+    this.pressed = false,
+    required this.child,
+  });
+
+  final int selectedIndex;
+  final double position;
+  final bool dragging;
+
+  /// 누르고 있는 동안 선택 캡슐이 레일 밖으로 부푼 유리 렌즈가 된다.
+  final bool pressed;
+  final Widget child;
+
+  @override
+  State<GlassTabBarSurface> createState() => _GlassTabBarSurfaceState();
+}
+
+class _GlassTabBarSurfaceState extends State<GlassTabBarSurface> {
+  /// 렌즈가 레일 위아래로 부풀 자리를 위해 네이티브 뷰를 사방으로 더 크게 깐다.
+  static const _lensOverflow = 16.0;
+  static int _channelSequence = 0;
+  late final MethodChannel _channel = MethodChannel(
+    'today_mood/glass_tab_bar_${_channelSequence++}',
+  );
+
+  void _updateNativeSelection() {
+    if (!Platform.isIOS) return;
+    _channel.invokeMethod<void>('setSelection', {
+      'index': widget.selectedIndex,
+      'position': widget.position,
+      'dragging': widget.dragging,
+      'pressed': widget.pressed,
+    });
+  }
+
+  @override
+  void didUpdateWidget(GlassTabBarSurface oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.selectedIndex != widget.selectedIndex ||
+        oldWidget.position != widget.position ||
+        oldWidget.dragging != widget.dragging ||
+        oldWidget.pressed != widget.pressed) {
+      _updateNativeSelection();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (Platform.isIOS) {
+      return Stack(
+        fit: StackFit.expand,
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            left: -_lensOverflow,
+            top: -_lensOverflow,
+            right: -_lensOverflow,
+            bottom: -_lensOverflow,
+            child: UiKitView(
+              viewType: 'today_mood/glass_tab_bar',
+              creationParams: {
+                'channelName': _channel.name,
+                'selectedIndex': widget.selectedIndex,
+                'position': widget.position,
+                'dragging': widget.dragging,
+                'pressed': widget.pressed,
+                'overflow': _lensOverflow,
+              },
+              creationParamsCodec: const StandardMessageCodec(),
+              hitTestBehavior: PlatformViewHitTestBehavior.transparent,
+            ),
+          ),
+          widget.child,
+        ],
+      );
+    }
+
+    return GlassSurface(capsule: true, child: widget.child);
   }
 }

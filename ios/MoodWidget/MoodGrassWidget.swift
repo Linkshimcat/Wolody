@@ -36,8 +36,8 @@ struct MoodGrassWidget: Widget {
       MoodGrassView(data: entry.data)
         .widgetContainerBackground()
     }
-    .configurationDisplayName("기분 잔디")
-    .description("기록한 날을 그날의 기분 색으로 채웁니다.")
+    .configurationDisplayName("마음 잔디")
+    .description("기록한 날을 그날의 마음 색으로 채웁니다.")
     .supportedFamilies([.systemSmall, .systemMedium])
   }
 }
@@ -56,14 +56,16 @@ struct MoodGrassView: View {
         / CGFloat(weeks)
 
       VStack(alignment: .leading, spacing: 8) {
-        HStack(spacing: 4) {
-          Text(data.recorded ? data.emojis : "✍️")
-            .font(.system(size: 13))
+        HStack(spacing: 6) {
+          if data.recorded {
+            WooldyPortrait(face: data.faces.first, size: 20)
+          }
+          Text("마음 잔디")
+            .font(.system(size: 13, weight: .bold, design: .rounded))
+            .foregroundStyle(.white)
             .lineLimit(1)
-          Text(recordedCountText(weeks: weeks))
-            .font(.caption2)
-            .foregroundStyle(.secondary)
           Spacer(minLength: 0)
+          recordedCountText(weeks: weeks)
         }
 
         Spacer(minLength: 0)
@@ -95,18 +97,19 @@ struct MoodGrassView: View {
     column: Int, row: Int, size: CGFloat, weeks: Int
   ) -> some View {
     let date = dateFor(column: column, row: row, weeks: weeks)
-    let isFuture = date > Calendar.current.startOfDay(for: Date())
+    let today = Calendar.current.startOfDay(for: Date())
+    let isFuture = date > today
     let key = MoodWidgetData.dayFormatter.string(from: date)
     let color = data.colorsByDay[key].flatMap { Color(hex: $0) }
 
     let shape = RoundedRectangle(cornerRadius: size * 0.28, style: .continuous)
     return shape
-      .fill(color ?? Color.secondary.opacity(0.18))
-      // 검정처럼 어두운 기분 색도 배경에 묻히지 않도록 옅은 테두리를 준다.
+      .fill(color ?? WolodyStyle.selectorSurface)
+      // 오늘 아직 기록하지 않았다면 오늘 칸을 파란 테두리로 짚어준다.
       .overlay(
         shape.strokeBorder(
-          Color.primary.opacity(color == nil ? 0 : 0.22),
-          lineWidth: 0.5
+          WolodyStyle.brandBlue.opacity(date == today && color == nil ? 1 : 0),
+          lineWidth: 1
         )
       )
       .frame(width: size, height: size)
@@ -123,17 +126,35 @@ struct MoodGrassView: View {
     return calendar.date(byAdding: .day, value: daysFromStart, to: today) ?? today
   }
 
-  private func recordedCountText(weeks: Int) -> String {
+  /// "168일 중 60일". 기록해서 숫자가 바뀌면 자릿수가 위아래로 굴러 바뀐다.
+  @ViewBuilder
+  private func recordedCountText(weeks: Int) -> some View {
+    let span = weeks * 7
+    let recorded = recordedDays(span: span)
+    let count = Text("\(recorded)")
+      .foregroundColor(WolodyStyle.brandBlue)
+      .fontWeight(.semibold)
+    let text = Text("\(span)일 중 \(count)일")
+      .font(.system(size: 11))
+    .foregroundColor(WolodyStyle.textSecondary)
+    .lineLimit(1)
+
+    if #available(iOS 17.0, *) {
+      text.contentTransition(.numericText(value: Double(recorded)))
+    } else {
+      text.contentTransition(.numericText())
+    }
+  }
+
+  private func recordedDays(span: Int) -> Int {
     let calendar = Calendar.current
     let today = calendar.startOfDay(for: Date())
-    let span = weeks * 7
-    let recorded = data.colorsByDay.keys.filter { key in
+    return data.colorsByDay.keys.filter { key in
       guard let date = MoodWidgetData.dayFormatter.date(from: key) else {
         return false
       }
       let days = calendar.dateComponents([.day], from: date, to: today).day ?? 0
       return days >= 0 && days < span
     }.count
-    return "\(span)일 중 \(recorded)일"
   }
 }

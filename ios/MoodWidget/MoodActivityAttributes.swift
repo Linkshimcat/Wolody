@@ -12,6 +12,10 @@ struct MoodActivityAttributes: ActivityAttributes {
     var label: String
     /// 오늘 기록을 남겼는지 여부.
     var recorded: Bool
+    /// 첫 기분의 울디 얼굴 번호(0~11). 이전 버전 상태와 호환되도록 옵셔널이다.
+    var face: Int?
+    /// 첫 기분 색(RRGGBB). 얼굴 뒤 은은한 빛에 쓴다.
+    var colorHex: String?
   }
 
   /// 활동이 살아있는 동안 바뀌지 않는 제목.

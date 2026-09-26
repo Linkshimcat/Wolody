@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/services.dart';
 
 /// 카드에 첨부된 사진을 전체 화면에서 본다.
 ///
@@ -12,6 +13,7 @@ class PhotoViewer extends StatelessWidget {
   final String filePath;
 
   static Future<void> show(BuildContext context, String filePath) {
+    HapticFeedback.lightImpact();
     return Navigator.of(context).push<void>(
       PageRouteBuilder(
         opaque: false,
@@ -30,7 +32,10 @@ class PhotoViewer extends StatelessWidget {
   Widget build(BuildContext context) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () => Navigator.of(context).pop(),
+      onTap: () {
+        HapticFeedback.lightImpact();
+        Navigator.of(context).pop();
+      },
       child: Container(
         color: CupertinoColors.black,
         child: Stack(
@@ -59,7 +64,10 @@ class PhotoViewer extends StatelessWidget {
               right: 16,
               child: CupertinoButton(
                 padding: EdgeInsets.zero,
-                onPressed: () => Navigator.of(context).pop(),
+                onPressed: () {
+                  HapticFeedback.lightImpact();
+                  Navigator.of(context).pop();
+                },
                 child: const Icon(
                   CupertinoIcons.xmark_circle_fill,
                   size: 32,

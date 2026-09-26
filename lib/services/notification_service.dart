@@ -81,34 +81,60 @@ class NotificationService {
     }
   }
 
+  /// iOS는 앱 하나당 예약 알림을 64개까지만 보관하고 나머지는 버린다.
+  static const _maxPending = 64;
+
   /// 시작~종료 구간을 주기 간격으로 나눠 알림을 예약한다.
-  /// 각 알림은 같은 요일·시간에 매주 반복된다.
+  /// 매일이면 시각마다 하나씩 매일 반복하고, 요일을 골랐으면 요일·시각마다
+  /// 매주 반복한다. 매일을 요일 7개로 나눠 잡으면 64개 한도를 금방 넘는다.
   Future<void> _scheduleRepeating(ReminderSettings settings) async {
     if (!settings.endAfterStart) return;
 
-    var id = 1000;
+    final everyDay = settings.weekdays.length == 7;
+    final startMinuteOfDay = settings.startHour * 60 + settings.startMinute;
     final endMinuteOfDay = settings.endHour * 60 + settings.endMinute;
-    for (final weekday in settings.weekdays) {
-      var scheduled = _nextInstanceOf(
-        weekday,
-        settings.startHour,
-        settings.startMinute,
-      );
-      while (scheduled.hour * 60 + scheduled.minute < endMinuteOfDay) {
+    var id = 1000;
+
+    for (final weekday in everyDay ? const [0] : settings.weekdays) {
+      for (
+        var minuteOfDay = startMinuteOfDay;
+        minuteOfDay < endMinuteOfDay;
+        minuteOfDay += settings.intervalMinutes
+      ) {
+        if (id - 1000 >= _maxPending) return;
+        final hour = minuteOfDay ~/ 60;
+        final minute = minuteOfDay % 60;
         await _plugin.zonedSchedule(
           id: id++,
           title: '오늘도 기록해볼까요? 🙂',
           body: '오늘의 기분을 카드로 기록해보세요',
-          scheduledDate: scheduled,
+          scheduledDate: everyDay
+              ? _nextDailyInstance(hour, minute)
+              : _nextInstanceOf(weekday, hour, minute),
           notificationDetails: _details,
           androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
-          matchDateTimeComponents: DateTimeComponents.dayOfWeekAndTime,
-        );
-        scheduled = scheduled.add(
-          Duration(minutes: settings.intervalMinutes),
+          matchDateTimeComponents: everyDay
+              ? DateTimeComponents.time
+              : DateTimeComponents.dayOfWeekAndTime,
         );
       }
     }
+  }
+
+  tz.TZDateTime _nextDailyInstance(int hour, int minute) {
+    final now = tz.TZDateTime.now(tz.local);
+    var scheduled = tz.TZDateTime(
+      tz.local,
+      now.year,
+      now.month,
+      now.day,
+      hour,
+      minute,
+    );
+    if (scheduled.isBefore(now)) {
+      scheduled = scheduled.add(const Duration(days: 1));
+    }
+    return scheduled;
   }
 
   static const _details = NotificationDetails(

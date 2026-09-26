@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:today_mood/models/mood_entry.dart';
+import 'package:wolody/models/mood_entry.dart';
 
 void main() {
   test('round-trips through json', () {

@@ -36,7 +36,7 @@ class ReminderSettings {
     startMinute: 0,
     endHour: 22,
     endMinute: 0,
-    intervalMinutes: 20,
+    intervalMinutes: 60,
     weekdays: {1, 2, 3, 4, 5, 6, 7},
   );
 

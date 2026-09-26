@@ -45,7 +45,9 @@ enum LiveActivityBridge {
     return MoodActivityAttributes.ContentState(
       emojis: map["emojis"] as? String ?? "",
       label: map["label"] as? String ?? "",
-      recorded: map["recorded"] as? Bool ?? false
+      recorded: map["recorded"] as? Bool ?? false,
+      face: map["face"] as? Int,
+      colorHex: map["color"] as? String
     )
   }
 
@@ -70,7 +72,7 @@ enum LiveActivityBridge {
       let map = args as? [String: Any] ?? [:]
       _ = try Activity.request(
         attributes: MoodActivityAttributes(
-          title: map["title"] as? String ?? "오늘의 기분"
+          title: map["title"] as? String ?? "오늘의 마음"
         ),
         contentState: contentState(from: args)
       )

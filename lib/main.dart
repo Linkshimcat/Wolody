@@ -2,37 +2,49 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
-import 'screens/auth_gate.dart';
+import 'theme.dart';
+import 'screens/root_screen.dart';
+import 'screens/splash_screen.dart';
 import 'services/notification_service.dart';
 import 'services/photo_storage.dart';
-import 'services/supabase_config.dart';
+import 'services/profile_storage.dart';
 import 'services/widget_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   // 세로 모드 고정 — 플랫폼 설정과 함께 가로 회전을 막는다.
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
-  await SupabaseConfig.initialize();
+  final initialization = _initializeApp();
+  runApp(MyApp(initialization: initialization));
+}
+
+Future<void> _initializeApp() async {
   await initializeDateFormatting('ko_KR');
   await PhotoStorage.init();
+  // 프로필 사진은 문서 폴더에 있으므로 PhotoStorage 다음에 읽는다.
+  await ProfileStorage.load();
   await NotificationService.instance.init();
   // 앱을 껐다 켜는 사이 기록이 바뀌었을 수 있으니 위젯을 한 번 맞춰둔다.
   await WidgetService.refresh();
-  runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  final Future<void>? initialization;
+
+  const MyApp({super.key, this.initialization});
 
   @override
   Widget build(BuildContext context) {
-    return const CupertinoApp(
-      title: '오늘의 기분은?',
+    return CupertinoApp(
+      title: 'Wolody',
       debugShowCheckedModeBanner: false,
       theme: CupertinoThemeData(
-        primaryColor: Color.fromARGB(255, 192, 80, 80),
+        brightness: Brightness.dark,
+        primaryColor: WolodyColors.brandBlue,
       ),
-      home: AuthGate(),
+      home: initialization == null
+          ? const RootScreen()
+          : SplashScreen(initialization: initialization!),
     );
   }
 }

@@ -1,5 +1,18 @@
 import 'package:flutter/cupertino.dart';
 
+abstract final class WolodyColors {
+  static const background = Color(0xFF0D1118);
+  static const surface = Color(0xFF161E2A);
+  static const surfaceRaised = Color(0xFF23262D);
+  static const selectorSurface = Color(0xFF242D3B);
+  static const surfaceSelected = Color(0xFF060B12);
+  static const outline = Color(0xFF303844);
+  static const textPrimary = Color(0xFFFFFFFF);
+  static const textSecondary = Color(0xFF858B96);
+  static const brandBlue = Color(0xFF346AE6);
+  static const actionLavender = Color(0xFF96A1BF);
+}
+
 /// 네비게이션 바 배경.
 ///
 /// Cupertino 기본값(0xF0F9F9F9)은 알파가 94%라 블러가 거의 드러나지 않고,
@@ -20,7 +33,7 @@ const kBottomNavSpace = 132.0;
 /// 라이트는 iOS 기본 그룹 배경을, 다크는 앱만의 짙은 청회색(0C0F14)을 쓴다.
 const kAppBackground = CupertinoDynamicColor.withBrightness(
   color: Color(0xFFF2F2F7),
-  darkColor: Color(0xFF0C0F14),
+  darkColor: WolodyColors.background,
 );
 
 /// 그룹 목록(설정 화면) 섹션 카드 배경.
@@ -28,7 +41,7 @@ const kAppBackground = CupertinoDynamicColor.withBrightness(
 /// 다크 모드에서는 배경(0C0F14)보다 살짝 밝아 카드가 드러나도록 한다.
 const kListSectionBackground = CupertinoDynamicColor.withBrightness(
   color: Color(0xFFFFFFFF),
-  darkColor: Color(0xFF151A21),
+  darkColor: WolodyColors.surface,
 );
 
 /// 선택된 탭 뒤에 깔리는 표시.

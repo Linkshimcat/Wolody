@@ -7,9 +7,9 @@ import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:today_mood/main.dart';
-import 'package:today_mood/widgets/mood_card.dart';
-import 'package:today_mood/widgets/mood_picker_sheet.dart';
+import 'package:wolody/main.dart';
+import 'package:wolody/widgets/mood_card.dart';
+import 'package:wolody/widgets/mood_picker_sheet.dart';
 
 void main() {
   setUp(() async {

@@ -2,7 +2,6 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
-import '../models/mood.dart';
 import '../models/mood_entry.dart';
 import '../services/live_activity_service.dart';
 import '../services/mood_editor.dart';
@@ -11,6 +10,7 @@ import '../services/photo_storage.dart';
 import '../services/widget_service.dart';
 import '../theme.dart';
 import '../widgets/mood_card.dart';
+import '../widgets/wolody_icon.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -20,7 +20,7 @@ class CalendarScreen extends StatefulWidget {
 }
 
 class _CalendarScreenState extends State<CalendarScreen> {
-  static const _dayLabels = ['월', '화', '수', '목', '금', '토', '일'];
+  static const _dayLabels = ['일', '월', '화', '수', '목', '금', '토'];
 
   final _storage = MoodStorage();
   Map<DateTime, List<MoodEntry>> _byDay = {};
@@ -68,6 +68,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   Future<void> _edit(MoodEntry entry) async {
+    HapticFeedback.lightImpact();
     if (await editMoodEntry(context, entry)) await _load();
   }
 
@@ -96,7 +97,18 @@ class _CalendarScreenState extends State<CalendarScreen> {
       backgroundColor: kAppBackground,
       navigationBar: const CupertinoNavigationBar(
         backgroundColor: kNavBarBackground,
-        middle: Text('달력'),
+        middle: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text('Wolody 달력', style: TextStyle(fontFamily: 'BM Jua')),
+            SizedBox(width: 6),
+            WolodyIcon(
+              'iconsax-calendar.svg',
+              size: 18,
+              color: CupertinoColors.white,
+            ),
+          ],
+        ),
       ),
       child: _loading
           ? const Center(child: CupertinoActivityIndicator())
@@ -109,15 +121,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   SliverToBoxAdapter(child: _buildSelectedHeader(context)),
                   if (selectedEntries.isEmpty)
                     SliverToBoxAdapter(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 28),
+                      child: SizedBox(
+                        height: 216,
                         child: Center(
                           child: Text(
-                            '이 날은 기록이 없어요',
-                            style: TextStyle(
-                              color: CupertinoColors.secondaryLabel.resolveFrom(
-                                context,
-                              ),
+                            '이 날은 기록이 없어요.',
+                            style: const TextStyle(
+                              color: WolodyColors.textSecondary,
+                              fontSize: 15,
                             ),
                           ),
                         ),
@@ -126,10 +137,13 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   else
                     SliverList.builder(
                       itemCount: selectedEntries.length,
-                      itemBuilder: (context, i) => MoodCard(
-                        entry: selectedEntries[i],
-                        onDelete: () => _delete(selectedEntries[i]),
-                        onTap: () => _edit(selectedEntries[i]),
+                      itemBuilder: (context, i) => Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                        child: MoodCard(
+                          entry: selectedEntries[i],
+                          onDelete: () => _delete(selectedEntries[i]),
+                          onTap: () => _edit(selectedEntries[i]),
+                        ),
                       ),
                     ),
                   const SliverToBoxAdapter(
@@ -143,18 +157,32 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   Widget _buildMonthHeader() {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+      padding: const EdgeInsets.fromLTRB(24, 28, 24, 4),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
+          Expanded(
+            child: Row(
+              children: [
+                Text(
+                  DateFormat('M월 yyyy', 'ko_KR').format(_month),
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(width: 3),
+                const Icon(
+                  CupertinoIcons.chevron_right,
+                  size: 12,
+                  color: WolodyColors.brandBlue,
+                ),
+              ],
+            ),
+          ),
           CupertinoButton(
             padding: EdgeInsets.zero,
             onPressed: () => _changeMonth(-1),
             child: const Icon(CupertinoIcons.chevron_left, size: 20),
-          ),
-          Text(
-            DateFormat('yyyy년 M월', 'ko_KR').format(_month),
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
           ),
           CupertinoButton(
             padding: EdgeInsets.zero,
@@ -168,7 +196,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   Widget _buildWeekdayLabels(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 24),
       child: Row(
         children: _dayLabels
             .map(
@@ -194,20 +222,20 @@ class _CalendarScreenState extends State<CalendarScreen> {
   Widget _buildGrid(BuildContext context) {
     final firstDay = DateTime(_month.year, _month.month);
     final daysInMonth = DateTime(_month.year, _month.month + 1, 0).day;
-    // 월요일 시작 그리드라 앞쪽 빈칸 수는 첫날의 요일 - 1이다.
-    final leadingBlanks = firstDay.weekday - 1;
+    // Figma 달력은 일요일부터 시작한다.
+    final leadingBlanks = firstDay.weekday % 7;
     final cells = leadingBlanks + daysInMonth;
     final rows = (cells / 7).ceil();
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
+      padding: const EdgeInsets.fromLTRB(24, 4, 24, 8),
       child: Column(
         children: List.generate(rows, (row) {
           return Row(
             children: List.generate(7, (col) {
               final dayNumber = row * 7 + col - leadingBlanks + 1;
               if (dayNumber < 1 || dayNumber > daysInMonth) {
-                return const Expanded(child: SizedBox(height: 52));
+                return const Expanded(child: SizedBox(height: 50));
               }
               return Expanded(
                 child: _buildDayCell(
@@ -223,30 +251,22 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   Widget _buildDayCell(BuildContext context, DateTime day) {
-    final entries = _byDay[day];
     final isSelected = day == _selected;
     final isToday = day == _dateOnly(DateTime.now());
-    final mood = entries == null ? null : Mood.fromEmoji(entries.first.emojis.first);
-
     return GestureDetector(
       onTap: () {
         HapticFeedback.selectionClick();
         setState(() => _selected = day);
       },
       child: Container(
-        height: 52,
-        margin: const EdgeInsets.all(2),
+        height: 40,
+        margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
         decoration: BoxDecoration(
-          color: isSelected
-              ? CupertinoTheme.of(context).primaryColor.withValues(alpha: 0.18)
-              : mood?.color.withValues(alpha: 0.18),
-          borderRadius: BorderRadius.circular(10),
+          color: isSelected ? const Color(0xFF22365E) : null,
           border: isSelected
-              ? Border.all(
-                  color: CupertinoTheme.of(context).primaryColor,
-                  width: 1.5,
-                )
+              ? Border.all(color: WolodyColors.brandBlue, width: 1)
               : null,
+          borderRadius: BorderRadius.circular(5),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -254,18 +274,15 @@ class _CalendarScreenState extends State<CalendarScreen> {
             Text(
               '${day.day}',
               style: TextStyle(
-                fontSize: 12,
-                fontWeight: isToday ? FontWeight.w800 : FontWeight.w500,
-                color: isToday
-                    ? CupertinoTheme.of(context).primaryColor
-                    : CupertinoColors.label.resolveFrom(context),
+                fontSize: 15,
+                fontWeight: isToday || isSelected
+                    ? FontWeight.w700
+                    : FontWeight.w400,
+                color: isSelected
+                    ? WolodyColors.brandBlue
+                    : CupertinoColors.white,
               ),
             ),
-            if (entries != null)
-              Text(
-                entries.first.emojis.first,
-                style: const TextStyle(fontSize: 17),
-              ),
           ],
         ),
       ),
@@ -274,9 +291,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   Widget _buildSelectedHeader(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(20, 12, 20, 4),
+      padding: const EdgeInsets.fromLTRB(24, 12, 24, 4),
       child: Text(
-        DateFormat('M월 d일 (E)', 'ko_KR').format(_selected),
+        DateFormat('yyyy년 M월 d일 (E)', 'ko_KR').format(_selected),
         style: TextStyle(
           fontSize: 15,
           fontWeight: FontWeight.w600,

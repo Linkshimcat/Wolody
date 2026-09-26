@@ -8,6 +8,185 @@ enum GlassPlatformView {
 
   static func register(with registrar: FlutterPluginRegistrar) {
     registrar.register(GlassViewFactory(), withId: viewType)
+    registrar.register(
+      GlassTabBarViewFactory(messenger: registrar.messenger()),
+      withId: GlassTabBarView.viewType
+    )
+  }
+}
+
+private final class GlassTabBarViewFactory: NSObject, FlutterPlatformViewFactory {
+  private let messenger: FlutterBinaryMessenger
+
+  init(messenger: FlutterBinaryMessenger) {
+    self.messenger = messenger
+  }
+
+  func create(
+    withFrame frame: CGRect,
+    viewIdentifier viewId: Int64,
+    arguments args: Any?
+  ) -> FlutterPlatformView {
+    GlassTabBarView(frame: frame, messenger: messenger, args: args)
+  }
+
+  func createArgsCodec() -> FlutterMessageCodec & NSObjectProtocol {
+    FlutterStandardMessageCodec.sharedInstance()
+  }
+}
+
+private final class GlassTabBarView: NSObject, FlutterPlatformView {
+  static let viewType = "today_mood/glass_tab_bar"
+  private let container: GlassTabBarContainer
+
+  init(frame: CGRect, messenger: FlutterBinaryMessenger, args: Any?) {
+    container = GlassTabBarContainer(frame: frame, messenger: messenger, args: args)
+    super.init()
+  }
+
+  func view() -> UIView { container }
+}
+
+/// iOS 26 탭 바처럼 유리 레일은 하나만 두고, 선택 표시는 그 안의 반투명 캡슐로 그린다.
+/// 유리 위에 유리를 겹치면 위쪽 유리가 아래 유리를 다시 굴절시켜 어둡고 탁한 원반처럼 보인다.
+/// 누르고 있는 동안에만 캡슐 자리에 레일 밖으로 부풀어 오르는 유리 렌즈를 띄운다.
+private final class GlassTabBarContainer: UIView {
+  /// 눌렀을 때 렌즈가 선택 캡슐보다 커지는 폭(가로, 세로).
+  private static let lensGrowth = CGSize(width: 14, height: 10)
+
+  private let railView: UIVisualEffectView
+  private let selectionView = UIView()
+  private let lensView = UIVisualEffectView(effect: nil)
+  private let channel: FlutterMethodChannel
+  /// 렌즈가 부풀 자리를 위해 Dart가 레일보다 사방으로 이만큼 크게 깐 여백.
+  private let overflow: CGFloat
+  private var selectedIndex: Int
+  private var position: Double
+  private var isDragging = false
+  private var isPressed = false
+
+  init(frame: CGRect, messenger: FlutterBinaryMessenger, args: Any?) {
+    let params = args as? [String: Any] ?? [:]
+    selectedIndex = params["selectedIndex"] as? Int ?? 0
+    position = params["position"] as? Double ?? Double(selectedIndex)
+    isPressed = params["pressed"] as? Bool ?? false
+    overflow = params["overflow"] as? CGFloat ?? 0
+    channel = FlutterMethodChannel(
+      name: params["channelName"] as? String ?? "today_mood/glass_tab_bar",
+      binaryMessenger: messenger
+    )
+
+    if #available(iOS 26.0, *) {
+      railView = UIVisualEffectView(effect: UIGlassEffect(style: .regular))
+    } else {
+      railView = UIVisualEffectView(
+        effect: UIBlurEffect(style: .systemThinMaterialDark)
+      )
+    }
+
+    super.init(frame: frame)
+    backgroundColor = .clear
+    isUserInteractionEnabled = false
+    selectionView.backgroundColor = UIColor.label.withAlphaComponent(0.12)
+    selectionView.layer.cornerCurve = .continuous
+    addSubview(railView)
+    railView.contentView.addSubview(selectionView)
+    // 렌즈는 레일 밖으로 부풀어야 하므로 레일 안이 아니라 위에 둔다.
+    addSubview(lensView)
+    if #available(iOS 26.0, *) {
+      railView.cornerConfiguration = .capsule()
+      lensView.cornerConfiguration = .capsule()
+    } else {
+      railView.layer.cornerCurve = .continuous
+      railView.clipsToBounds = true
+      lensView.layer.cornerCurve = .continuous
+      lensView.clipsToBounds = true
+    }
+
+    channel.setMethodCallHandler { [weak self] call, result in
+      guard let self,
+            call.method == "setSelection",
+            let args = call.arguments as? [String: Any] else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      self.isDragging = args["dragging"] as? Bool ?? false
+      self.isPressed = args["pressed"] as? Bool ?? false
+      self.selectedIndex = min(max(args["index"] as? Int ?? 0, 0), 2)
+      self.position = args["position"] as? Double ?? Double(self.selectedIndex)
+      self.updateFrames(animated: true)
+      result(nil)
+    }
+  }
+
+  @available(*, unavailable)
+  required init?(coder: NSCoder) { fatalError("not supported") }
+
+  override func layoutSubviews() {
+    super.layoutSubviews()
+    updateFrames(animated: false)
+  }
+
+  private var lensEffect: UIVisualEffect {
+    if #available(iOS 26.0, *) {
+      return UIGlassEffect(style: .clear)
+    }
+    return UIBlurEffect(style: .systemUltraThinMaterialLight)
+  }
+
+  private func updateFrames(animated: Bool) {
+    let railFrame = bounds.insetBy(dx: overflow, dy: overflow)
+    railView.frame = railFrame
+    if #unavailable(iOS 26.0) {
+      railView.layer.cornerRadius = railFrame.height / 2
+    }
+
+    let selectionArea = railView.bounds.insetBy(dx: 4, dy: 4)
+    let itemWidth = selectionArea.width / 4
+    // 드래그 중에는 손가락을 따라가는 위치, 평소에는 선택된 탭 위치를 쓴다.
+    let current = isDragging ? position : Double(selectedIndex)
+    let selectionFrame = CGRect(
+      x: selectionArea.minX + CGFloat(min(max(current, 0), 2)) * itemWidth,
+      y: selectionArea.minY,
+      width: itemWidth,
+      height: selectionArea.height
+    )
+    let restingLensFrame = selectionFrame.offsetBy(
+      dx: railFrame.minX,
+      dy: railFrame.minY
+    )
+    let lensFrame = isPressed
+      ? restingLensFrame.insetBy(
+          dx: -Self.lensGrowth.width,
+          dy: -Self.lensGrowth.height
+        )
+      : restingLensFrame
+    let showLens = isPressed
+    let changes = {
+      self.selectionView.frame = selectionFrame
+      self.selectionView.layer.cornerRadius = selectionFrame.height / 2
+      self.selectionView.alpha = showLens ? 0 : 1
+      self.lensView.frame = lensFrame
+      if #unavailable(iOS 26.0) {
+        self.lensView.layer.cornerRadius = lensFrame.height / 2
+      }
+      // 같은 효과를 매번 다시 넣으면 드래그 중 유리가 깜빡이므로 바뀔 때만 넣는다.
+      if (self.lensView.effect != nil) != showLens {
+        self.lensView.effect = showLens ? self.lensEffect : nil
+      }
+    }
+    guard animated, !isDragging else {
+      changes()
+      return
+    }
+    UIView.animate(
+      withDuration: 0.36,
+      delay: 0,
+      usingSpringWithDamping: 0.72,
+      initialSpringVelocity: 0.12,
+      options: [.beginFromCurrentState, .allowUserInteraction],
+      animations: changes
+    )
   }
 }
 
@@ -86,6 +265,12 @@ private final class GlassSwitchView: NSObject, FlutterPlatformView {
     let params = args as? [String: Any] ?? [:]
     control = UISwitch()
     control.isOn = params["value"] as? Bool ?? false
+    control.onTintColor = UIColor(
+      red: 52.0 / 255.0,
+      green: 106.0 / 255.0,
+      blue: 230.0 / 255.0,
+      alpha: 1
+    )
     channel = FlutterMethodChannel(
       name: params["channelName"] as? String ?? "today_mood/glass_switch",
       binaryMessenger: messenger

@@ -76,6 +76,10 @@ private final class NativeBarContainer: UIView, UITabBarDelegate {
   private static let sideInset = 20.0
   // [+]는 캡슐의 4번째 아이템으로 들어간다.
   private static let addItemIndex = 3
+  /// icons에 이 이름이 오면 SF Symbol 대신 프로필 사진을 동그랗게 그린다.
+  private static let avatarIcon = "avatar"
+  private static let defaultAvatarAsset = "assets/AssetsDesign/image 5.png"
+  private static let avatarSize = CGSize(width: 26, height: 26)
   // [+]를 탭하면 선택 캡슐이 남지 않도록 이전 탭으로 되돌린다.
   private var lastTabIndex = 0
 
@@ -104,14 +108,24 @@ private final class NativeBarContainer: UIView, UITabBarDelegate {
 
     backgroundColor = .clear
 
+    // 앱은 항상 어두운 화면이므로 시스템이 라이트 모드여도 어두운 유리로 그린다.
+    overrideUserInterfaceStyle = .dark
+
     var items: [UITabBarItem] = []
     for (index, title) in titles.enumerated() {
       let symbol = symbols.indices.contains(index) ? symbols[index] : "circle"
       let item = UITabBarItem(
         title: title,
-        image: UIImage(systemName: symbol),
+        image: symbol == Self.avatarIcon ? nil : UIImage(systemName: symbol),
         tag: index
       )
+      if symbol == Self.avatarIcon {
+        Self.applyAvatar(
+          to: item,
+          path: args["avatarPath"] as? String,
+          tint: primaryTint
+        )
+      }
       items.append(item)
     }
     // [+] 액션: 라벨 없이 아이콘만, 항상 강조 색으로 그린다.
@@ -138,6 +152,14 @@ private final class NativeBarContainer: UIView, UITabBarDelegate {
 
     channel.setMethodCallHandler { [weak self] call, result in
       switch call.method {
+      case "setAvatar":
+        let path = (call.arguments as? [String: Any])?["path"] as? String
+        if let self,
+           let index = symbols.firstIndex(of: Self.avatarIcon),
+           let item = self.tabBar.items?[index] {
+          Self.applyAvatar(to: item, path: path, tint: self.primaryTint)
+        }
+        result(nil)
       case "setSelected":
         let index = (call.arguments as? [String: Any])?["index"] as? Int ?? 0
         if let items = self?.tabBar.items, items.indices.contains(index) {
@@ -185,6 +207,67 @@ private final class NativeBarContainer: UIView, UITabBarDelegate {
     tabBar.itemPositioning = .centered
   }
 
+  /// 프로필 사진(없으면 기본 울디)을 원형으로 잘라 탭 아이콘으로 쓴다.
+  /// 원본 색을 유지해야 하므로 템플릿이 아닌 원본 이미지로 넣고,
+  /// 선택됐을 때는 강조 색 테두리를 둘러 선택 상태를 알 수 있게 한다.
+  private static func applyAvatar(to item: UITabBarItem, path: String?, tint: UIColor) {
+    let photo = path.flatMap { UIImage(contentsOfFile: $0) }
+    // lookupKey는 앱 번들 기준 상대 경로(Frameworks/App.framework/flutter_assets/...)이고,
+    // Flutter는 에셋 파일명을 퍼센트 인코딩해 담는다("image 5.png" → "image%205.png").
+    let key = FlutterDartProject.lookupKey(forAsset: defaultAvatarAsset)
+    let fallback = [key, key.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed)]
+      .compactMap { $0 }
+      .lazy
+      .compactMap { UIImage(contentsOfFile: Bundle.main.bundlePath + "/" + $0) }
+      .first
+    guard let source = photo ?? fallback else { return }
+    // 기본 울디 이미지는 배경이 투명하므로 앱과 같은 밝은 원 위에 올린다.
+    let backdrop = photo == nil
+      ? UIColor(red: 0xE9 / 255, green: 0xEC / 255, blue: 0xF3 / 255, alpha: 1)
+      : nil
+    item.image = circularAvatar(source, backdrop: backdrop, ring: nil)
+    item.selectedImage = circularAvatar(source, backdrop: backdrop, ring: tint)
+  }
+
+  private static func circularAvatar(
+    _ source: UIImage,
+    backdrop: UIColor?,
+    ring: UIColor?
+  ) -> UIImage {
+    let rect = CGRect(origin: .zero, size: avatarSize)
+    let image = UIGraphicsImageRenderer(size: avatarSize).image { context in
+      context.cgContext.saveGState()
+      UIBezierPath(ovalIn: rect).addClip()
+      if let backdrop {
+        backdrop.setFill()
+        context.fill(rect)
+      }
+      // 가운데를 기준으로 원을 가득 채우도록(aspect fill) 그린다.
+      let scale = max(
+        rect.width / source.size.width,
+        rect.height / source.size.height
+      )
+      let drawSize = CGSize(
+        width: source.size.width * scale,
+        height: source.size.height * scale
+      )
+      source.draw(in: CGRect(
+        x: (rect.width - drawSize.width) / 2,
+        y: (rect.height - drawSize.height) / 2,
+        width: drawSize.width,
+        height: drawSize.height
+      ))
+      context.cgContext.restoreGState()
+      if let ring {
+        ring.setStroke()
+        let border = UIBezierPath(ovalIn: rect.insetBy(dx: 0.75, dy: 0.75))
+        border.lineWidth = 1.5
+        border.stroke()
+      }
+    }
+    return image.withRenderingMode(.alwaysOriginal)
+  }
+
   private func layout(tabBar: UITabBar) {
     tabBar.translatesAutoresizingMaskIntoConstraints = false
 
@@ -208,4 +291,5 @@ private final class NativeBarContainer: UIView, UITabBarDelegate {
       channel.invokeMethod("onSelect", arguments: ["index": item.tag])
     }
   }
+
 }

@@ -39,7 +39,7 @@ class WidgetService {
       // 하루에 여러 번 기록했으면 가장 최근 것의 색을 쓴다.
       colorsByDay.putIfAbsent(
         _formatDay(day),
-        () => _hex(Mood.fromEmoji(entry.emojis.first).color),
+        () => hex(Mood.fromEmoji(entry.emojis.first).color),
       );
     }
 
@@ -50,6 +50,9 @@ class WidgetService {
       'recorded': todayEntry != null,
       'emojis': todayMoods.map((m) => m.emoji).join(),
       'label': todayMoods.map((m) => m.label).join(' · '),
+      // 위젯은 이모지 대신 울디 얼굴(faceIndex)과 첫 기분 색의 은은한 빛으로 그린다.
+      'faces': todayMoods.map((m) => m.faceIndex).toList(),
+      'color': todayMoods.isEmpty ? null : hex(todayMoods.first.color),
       'days': colorsByDay,
     };
   }
@@ -60,7 +63,7 @@ class WidgetService {
       '${day.day.toString().padLeft(2, '0')}';
 
   /// Swift 쪽에서 파싱하는 RRGGBB 형식.
-  static String _hex(Color color) {
+  static String hex(Color color) {
     final rgb = color.toARGB32() & 0xFFFFFF;
     return rgb.toRadixString(16).padLeft(6, '0').toUpperCase();
   }

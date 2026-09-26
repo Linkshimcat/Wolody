@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:today_mood/screens/home_screen.dart';
+import 'package:wolody/screens/home_screen.dart';
 
 void main() {
   setUp(() async {

@@ -1,4 +1,4 @@
-# today_mood
+# Wolody
 
 <img width="2000" height="500" alt="Frame 6" src="https://github.com/user-attachments/assets/6005d6bb-d7b1-42ef-907e-a9c7fdc6aecc" />
 
