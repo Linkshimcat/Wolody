@@ -10,7 +10,7 @@ import 'widget_service.dart';
 /// 잠금화면/다이나믹 아일랜드의 Live Activity를 제어한다. iOS 16.1+ 전용이며,
 /// 다른 플랫폼이나 낮은 버전에서는 모든 호출이 조용히 무시된다.
 class LiveActivityService {
-  static const _channel = MethodChannel('today_mood/live_activity');
+  static const _channel = MethodChannel('wolody/live_activity');
 
   static Future<bool> isSupported() async {
     if (!Platform.isIOS) return false;

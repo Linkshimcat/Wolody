@@ -128,6 +128,13 @@ class MoodStorage {
     }
   }
 
+  /// 로그아웃할 때 이 기기에 남은 사본을 지운다. 계정의 기록은 클라우드에 남아
+  /// 있어서 다시 로그인하면 돌아오고, 다음 계정에 섞여 올라가지 않는다.
+  static Future<void> clearLocal() async {
+    await _cacheLocally(const []);
+    cache.value = const [];
+  }
+
   static User? get _currentUser {
     if (!SupabaseConfig.isInitialized) return null;
     return Supabase.instance.client.auth.currentUser;

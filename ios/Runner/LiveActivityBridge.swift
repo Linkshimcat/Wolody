@@ -4,7 +4,7 @@ import UIKit
 
 /// Dart에서 Live Activity를 시작/갱신/종료할 수 있게 해주는 메서드 채널.
 enum LiveActivityBridge {
-  private static let channelName = "today_mood/live_activity"
+  private static let channelName = "wolody/live_activity"
 
   static func register(with registrar: FlutterPluginRegistrar) {
     let channel = FlutterMethodChannel(

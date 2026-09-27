@@ -4,17 +4,19 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/reminder_settings.dart';
+import '../services/trash_storage.dart';
 import '../services/live_activity_service.dart';
 import '../services/notification_service.dart';
 import '../theme.dart';
 import '../widgets/glass_back_button.dart';
 import '../widgets/glass_switch.dart';
 import '../widgets/wolody_icon.dart';
+import 'account_screen.dart';
+import 'deleted_records_screen.dart';
+import 'licenses_screen.dart';
 
 class ReminderScreen extends StatefulWidget {
-  final VoidCallback? onBack;
-
-  const ReminderScreen({super.key, this.onBack});
+  const ReminderScreen({super.key});
 
   @override
   State<ReminderScreen> createState() => _ReminderScreenState();
@@ -24,6 +26,7 @@ class _ReminderScreenState extends State<ReminderScreen> {
   ReminderSettings? _settings;
   bool _liveActivitySupported = false;
   bool _liveActivityOn = false;
+  int _trashCount = 0;
 
   @override
   void initState() {
@@ -32,6 +35,18 @@ class _ReminderScreenState extends State<ReminderScreen> {
       if (mounted) setState(() => _settings = settings);
     });
     _loadLiveActivity();
+    TrashStorage.count.addListener(_onTrashChanged);
+    TrashStorage.load();
+  }
+
+  @override
+  void dispose() {
+    TrashStorage.count.removeListener(_onTrashChanged);
+    super.dispose();
+  }
+
+  void _onTrashChanged() {
+    if (mounted) setState(() => _trashCount = TrashStorage.count.value);
   }
 
   Future<void> _loadLiveActivity() async {
@@ -93,21 +108,11 @@ class _ReminderScreenState extends State<ReminderScreen> {
     }
   }
 
-  Future<void> _showNotice(String title, String message) {
-    return showCupertinoDialog<void>(
-      context: context,
-      builder: (context) => CupertinoAlertDialog(
-        title: Text(title),
-        content: Text(message),
-        actions: [
-          CupertinoDialogAction(
-            isDefaultAction: true,
-            onPressed: () => Navigator.pop(context),
-            child: const Text('확인'),
-          ),
-        ],
-      ),
-    );
+  /// 마이 탭 Navigator에 쌓아 탭 바를 남기고 가장자리 스와이프로 돌아오게 한다.
+  void _push(Widget screen) {
+    Navigator.of(
+      context,
+    ).push(CupertinoPageRoute<void>(builder: (_) => screen));
   }
 
   Widget _sectionTitle(String title) => Text(
@@ -558,9 +563,11 @@ class _ReminderScreenState extends State<ReminderScreen> {
   }
 
   Widget _actionRow({
-    required String icon,
+    String? icon,
+    IconData? iconData,
     required String title,
     required VoidCallback onTap,
+    String? detail,
   }) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -577,7 +584,10 @@ class _ReminderScreenState extends State<ReminderScreen> {
         ),
         child: Row(
           children: [
-            WolodyIcon(icon, size: 18, color: CupertinoColors.white),
+            if (icon != null)
+              WolodyIcon(icon, size: 18, color: CupertinoColors.white)
+            else
+              Icon(iconData, size: 19, color: CupertinoColors.white),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -588,6 +598,16 @@ class _ReminderScreenState extends State<ReminderScreen> {
                 ),
               ),
             ),
+            if (detail != null) ...[
+              Text(
+                detail,
+                style: const TextStyle(
+                  fontSize: 13,
+                  color: WolodyColors.textSecondary,
+                ),
+              ),
+              const SizedBox(width: 6),
+            ],
             const Icon(CupertinoIcons.chevron_right, size: 20),
           ],
         ),
@@ -612,7 +632,7 @@ class _ReminderScreenState extends State<ReminderScreen> {
                       GlassBackButton(
                         onPressed: () {
                           HapticFeedback.lightImpact();
-                          widget.onBack?.call();
+                          Navigator.maybePop(context);
                         },
                       ),
                       const SizedBox(width: 14),
@@ -653,7 +673,8 @@ class _ReminderScreenState extends State<ReminderScreen> {
                   _actionRow(
                     icon: 'iconsax-note.svg',
                     title: '삭제된 기록 보기',
-                    onTap: () => _showNotice('삭제된 기록', '삭제된 기록이 없어요.'),
+                    detail: _trashCount > 0 ? '$_trashCount개' : null,
+                    onTap: () => _push(const DeletedRecordsScreen()),
                   ),
                   const SizedBox(height: 34),
                   _sectionTitle('계정 관리'),
@@ -661,7 +682,15 @@ class _ReminderScreenState extends State<ReminderScreen> {
                   _actionRow(
                     icon: 'iconsax-security-user.svg',
                     title: '계정 정보',
-                    onTap: () => _showNotice('계정 정보', '로그인 기능은 아직 연결되지 않았어요.'),
+                    onTap: () => _push(const AccountScreen()),
+                  ),
+                  const SizedBox(height: 34),
+                  _sectionTitle('앱 정보'),
+                  const SizedBox(height: 22),
+                  _actionRow(
+                    iconData: CupertinoIcons.doc_text_fill,
+                    title: '오픈소스 라이선스',
+                    onTap: () => _push(const LicensesScreen()),
                   ),
                 ],
               ),

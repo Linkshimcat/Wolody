@@ -9,7 +9,7 @@ import 'mood_storage.dart';
 
 /// 홈 화면 위젯이 읽을 요약 데이터를 App Group에 써준다.
 class WidgetService {
-  static const _channel = MethodChannel('today_mood/widget');
+  static const _channel = MethodChannel('wolody/widget');
 
   /// 잔디 그리드는 폭에 따라 최대 26주(182일)까지 그린다. 넉넉히 잡아둔다.
   static const _grassDays = 190;

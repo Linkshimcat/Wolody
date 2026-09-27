@@ -14,7 +14,6 @@ import '../widgets/wolody_icon.dart';
 import 'calendar_screen.dart';
 import 'home_screen.dart';
 import 'profile_screen.dart';
-import 'reminder_screen.dart';
 
 class RootScreen extends StatefulWidget {
   const RootScreen({super.key});
@@ -33,7 +32,9 @@ class _RootScreenState extends State<RootScreen> {
   double _barDragPosition = 0;
   // 값이 바뀌면 화면이 새로 만들어지면서 저장소를 다시 읽는다.
   int _refreshToken = 0;
-  bool _settingsOpen = false;
+  // 마이 탭은 자체 Navigator를 둔다. 설정·리캡 같은 하위 화면을 탭 바를 남긴 채
+  // push해서 iOS 가장자리 스와이프로 뒤로 갈 수 있게 한다.
+  final _myTabNavigator = GlobalKey<NavigatorState>();
   bool _showSavedToast = false;
   bool _barDragging = false;
   bool _barPressed = false;
@@ -62,25 +63,33 @@ class _RootScreenState extends State<RootScreen> {
       case 1:
         return CalendarScreen(key: ValueKey('calendar-$_refreshToken'));
       default:
-        return _settingsOpen
-            ? ReminderScreen(
-                onBack: () => setState(() => _settingsOpen = false),
-              )
-            : ProfileScreen(
-                onOpenSettings: () {
-                  setState(() => _settingsOpen = true);
-                },
-              );
+        return NavigatorPopHandler(
+          onPopWithResult: (_) => _myTabNavigator.currentState?.maybePop(),
+          child: Navigator(
+            key: _myTabNavigator,
+            onGenerateRoute: (settings) => CupertinoPageRoute<void>(
+              settings: settings,
+              builder: (_) => const ProfileScreen(),
+            ),
+          ),
+        );
     }
   }
 
   void _selectTab(int index) {
-    if (index == _index) return;
+    if (index == _index) {
+      // iOS 관례: 보고 있는 탭을 다시 누르면 그 탭의 첫 화면으로 돌아간다.
+      final navigator = _myTabNavigator.currentState;
+      if (index == 2 && navigator != null && navigator.canPop()) {
+        HapticFeedback.selectionClick();
+        navigator.popUntil((route) => route.isFirst);
+      }
+      return;
+    }
     HapticFeedback.selectionClick();
     setState(() {
       _index = index;
       _barDragPosition = index.toDouble();
-      _settingsOpen = false;
     });
   }
 
@@ -101,7 +110,6 @@ class _RootScreenState extends State<RootScreen> {
     setState(() {
       _barDragPosition = position;
       _index = index;
-      _settingsOpen = false;
     });
   }
 
@@ -126,7 +134,6 @@ class _RootScreenState extends State<RootScreen> {
     setState(() {
       _index = 0;
       _barDragPosition = 0;
-      _settingsOpen = false;
       _refreshToken++;
       _showSavedToast = true;
     });
@@ -146,34 +153,16 @@ class _RootScreenState extends State<RootScreen> {
     return Stack(
       children: [
         Positioned.fill(child: _currentScreen),
-        if (_showSavedToast && !coveredByModal)
-          Positioned(
-            top: MediaQuery.paddingOf(context).top + 8,
-            left: 58,
-            right: 58,
-            child: Container(
-              height: 48,
-              decoration: BoxDecoration(
-                color: const Color(0xFF202838),
-                borderRadius: BorderRadius.circular(28),
-              ),
-              child: const Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    CupertinoIcons.checkmark_circle_fill,
-                    size: 24,
-                    color: CupertinoColors.white,
-                  ),
-                  SizedBox(width: 12),
-                  Text(
-                    '오늘의 기록을 완료 했어요!',
-                    style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                  ),
-                ],
-              ),
-            ),
+        // 토스트는 항상 자리에 두고, 보일 때 위에서 스르륵 내려오고
+        // 사라질 때 다시 위로 빠지며 흐려진다.
+        Positioned(
+          top: MediaQuery.paddingOf(context).top + 8,
+          left: 58,
+          right: 58,
+          child: IgnorePointer(
+            child: _SavedToast(visible: _showSavedToast && !coveredByModal),
           ),
+        ),
         // 판별이 끝나기 전에 Flutter 바가 잠깐 보였다 바뀌지 않도록 기다린다.
         if (!coveredByModal && !keyboardUp && _useNativeBar == true)
           Positioned(
@@ -362,6 +351,61 @@ class _RootScreenState extends State<RootScreen> {
         CupertinoIcons.add,
         size: 28,
         color: WolodyColors.brandBlue,
+      ),
+    );
+  }
+}
+
+/// "오늘의 기록을 완료 했어요!" 토스트. 위에서 살짝 튕기듯 내려오고, 위로 빠지며 사라진다.
+class _SavedToast extends StatelessWidget {
+  final bool visible;
+
+  const _SavedToast({required this.visible});
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedSlide(
+      offset: visible ? Offset.zero : const Offset(0, -1.6),
+      duration: Duration(milliseconds: visible ? 520 : 320),
+      curve: visible ? Curves.easeOutBack : Curves.easeInCubic,
+      child: AnimatedScale(
+        scale: visible ? 1 : 0.9,
+        duration: Duration(milliseconds: visible ? 520 : 320),
+        curve: visible ? Curves.easeOutBack : Curves.easeInCubic,
+        child: AnimatedOpacity(
+          opacity: visible ? 1 : 0,
+          duration: Duration(milliseconds: visible ? 220 : 280),
+          curve: Curves.easeOut,
+          child: Container(
+            height: 48,
+            decoration: BoxDecoration(
+              color: const Color(0xFF202838),
+              borderRadius: BorderRadius.circular(28),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x66000000),
+                  blurRadius: 18,
+                  offset: Offset(0, 6),
+                ),
+              ],
+            ),
+            child: const Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  CupertinoIcons.checkmark_circle_fill,
+                  size: 24,
+                  color: CupertinoColors.white,
+                ),
+                SizedBox(width: 12),
+                Text(
+                  '오늘의 기록을 완료 했어요!',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

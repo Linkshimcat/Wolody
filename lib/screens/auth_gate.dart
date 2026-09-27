@@ -1,16 +1,15 @@
 import 'package:flutter/cupertino.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../services/mood_storage.dart';
-import '../services/supabase_config.dart';
+import '../services/auth_service.dart';
+import '../theme.dart';
 import 'login_screen.dart';
 import 'root_screen.dart';
 
-/// 로그인 상태에 따라 [LoginScreen] 또는 [RootScreen]을 보여준다.
+/// 스플래시 다음 화면을 고른다.
 ///
-/// 앱 시작 직후 세션을 복원하는 동안에는 스플래시를 띄워 로그인 화면이
-/// 깜빡이지 않게 한다. 구글 로그인이 끝나면 (SIGNED_IN) 기기에 저장돼 있던
-/// 기록을 클라우드로 올리는 동기화를 한 번 수행한다.
+/// 로그인했거나 첫 화면에서 "로그인 없이 시작하기"를 누른 적이 있으면 바로 앱으로,
+/// 아니면 로그인 화면을 보여준다. 앱을 쓰다 로그아웃해도 게스트로 계속 쓴다.
 class AuthGate extends StatefulWidget {
   const AuthGate({super.key});
 
@@ -19,37 +18,38 @@ class AuthGate extends StatefulWidget {
 }
 
 class _AuthGateState extends State<AuthGate> {
-  bool _synced = false;
+  bool? _skipped;
 
-  void _handleAuth(AuthState state) {
-    final signedIn = state.session != null;
-    if (signedIn && !_synced) {
-      _synced = true;
-      MoodStorage.syncToCloud();
-    } else if (!signedIn) {
-      _synced = false;
-    }
+  @override
+  void initState() {
+    super.initState();
+    AuthService.hasSkippedLogin().then((skipped) {
+      if (mounted) setState(() => _skipped = skipped);
+    });
+  }
+
+  Future<void> _skip() async {
+    await AuthService.skipLogin();
+    if (mounted) setState(() => _skipped = true);
   }
 
   @override
   Widget build(BuildContext context) {
-    // Supabase가 초기화되지 않은 환경(테스트, 미설정 상태)에서는
-    // 기존처럼 로컬 전용으로 동작한다.
-    if (!SupabaseConfig.isInitialized) return const RootScreen();
-
+    // Supabase를 쓸 수 없는 환경(테스트, 초기화 실패)에서는 로그인 없이 쓴다.
+    if (!AuthService.isAvailable) return const RootScreen();
+    final skipped = _skipped;
+    if (skipped == null) {
+      return const CupertinoPageScaffold(
+        backgroundColor: WolodyColors.background,
+        child: SizedBox.expand(),
+      );
+    }
     return StreamBuilder<AuthState>(
-      stream: Supabase.instance.client.auth.onAuthStateChange,
-      builder: (context, snapshot) {
-        // 첫 세션 복원이 끝나기 전에는 로그인 화면이 잠깐 보이지 않도록 로딩을 띄운다.
-        if (!snapshot.hasData) {
-          return const CupertinoPageScaffold(
-            child: Center(child: CupertinoActivityIndicator()),
-          );
-        }
-        final state = snapshot.data!;
-        _handleAuth(state);
-        if (state.session != null) return const RootScreen();
-        return const LoginScreen();
+      stream: AuthService.authChanges,
+      builder: (context, _) {
+        final signedIn = AuthService.currentUser != null;
+        if (signedIn || skipped) return const RootScreen();
+        return LoginScreen(onSkip: _skip);
       },
     );
   }

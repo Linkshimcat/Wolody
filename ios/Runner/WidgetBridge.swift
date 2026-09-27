@@ -4,8 +4,8 @@ import WidgetKit
 
 /// Dart가 만든 위젯용 요약 JSON을 App Group에 저장하고 위젯을 다시 그리게 한다.
 enum WidgetBridge {
-  private static let channelName = "today_mood/widget"
-  private static let appGroupId = "group.com.linkcat.todayMood"
+  private static let channelName = "wolody/widget"
+  private static let appGroupId = "group.com.linkcat.wolody"
   private static let storageKey = "widget_payload"
 
   static func register(with registrar: FlutterPluginRegistrar) {

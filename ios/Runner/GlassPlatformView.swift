@@ -4,7 +4,7 @@ import UIKit
 /// Flutter 위젯 뒤에 iOS 26의 진짜 Liquid Glass 머티리얼을 깔아주는 플랫폼 뷰.
 /// Flutter는 자체 렌더러로 그리기 때문에 이 재질은 네이티브 뷰로만 얻을 수 있다.
 enum GlassPlatformView {
-  static let viewType = "today_mood/glass"
+  static let viewType = "wolody/glass"
 
   static func register(with registrar: FlutterPluginRegistrar) {
     registrar.register(GlassViewFactory(), withId: viewType)
@@ -36,7 +36,7 @@ private final class GlassTabBarViewFactory: NSObject, FlutterPlatformViewFactory
 }
 
 private final class GlassTabBarView: NSObject, FlutterPlatformView {
-  static let viewType = "today_mood/glass_tab_bar"
+  static let viewType = "wolody/glass_tab_bar"
   private let container: GlassTabBarContainer
 
   init(frame: CGRect, messenger: FlutterBinaryMessenger, args: Any?) {
@@ -72,7 +72,7 @@ private final class GlassTabBarContainer: UIView {
     isPressed = params["pressed"] as? Bool ?? false
     overflow = params["overflow"] as? CGFloat ?? 0
     channel = FlutterMethodChannel(
-      name: params["channelName"] as? String ?? "today_mood/glass_tab_bar",
+      name: params["channelName"] as? String ?? "wolody/glass_tab_bar",
       binaryMessenger: messenger
     )
 
@@ -227,7 +227,7 @@ private final class GlassView: NSObject, FlutterPlatformView {
 /// 상호작용(스위치 손잡이의 형태 변화)을 입혀 준다. 구형 OS에서는 기존
 /// 시스템 스위치로 그려진다.
 enum GlassSwitchPlatformView {
-  static let viewType = "today_mood/glass_switch"
+  static let viewType = "wolody/glass_switch"
 
   static func register(with registrar: FlutterPluginRegistrar) {
     registrar.register(
@@ -272,7 +272,7 @@ private final class GlassSwitchView: NSObject, FlutterPlatformView {
       alpha: 1
     )
     channel = FlutterMethodChannel(
-      name: params["channelName"] as? String ?? "today_mood/glass_switch",
+      name: params["channelName"] as? String ?? "wolody/glass_switch",
       binaryMessenger: messenger
     )
     super.init()

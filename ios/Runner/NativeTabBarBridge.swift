@@ -8,7 +8,7 @@ import UIKit
 /// Liquid Glass 재질·떠 있는 모양·선택 캡슐을 입혀 주므로, 실제 `UITabBar`를
 /// 플랫폼 뷰로 올리고 선택/기록 버튼 탭을 메서드 채널로 주고받는다.
 enum NativeTabBarBridge {
-  static let viewType = "today_mood/tab_bar"
+  static let viewType = "wolody/tab_bar"
 
   static func register(with registrar: FlutterPluginRegistrar) {
     registrar.register(
@@ -18,7 +18,7 @@ enum NativeTabBarBridge {
 
     // Dart에서 iOS 주 버전을 읽어 26+일 때만 네이티브 바를 쓰도록 한다.
     let channel = FlutterMethodChannel(
-      name: "today_mood/platform_info",
+      name: "wolody/platform_info",
       binaryMessenger: registrar.messenger()
     )
     channel.setMethodCallHandler { call, result in
@@ -59,7 +59,7 @@ private final class NativeTabBarView: NSObject, FlutterPlatformView {
     container = NativeBarContainer(
       frame: frame,
       args: params,
-      channelName: params["channelName"] as? String ?? "today_mood/tab_bar",
+      channelName: params["channelName"] as? String ?? "wolody/tab_bar",
       messenger: messenger
     )
     super.init()

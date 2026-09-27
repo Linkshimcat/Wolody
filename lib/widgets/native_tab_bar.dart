@@ -32,7 +32,7 @@ class _NativeTabBarState extends State<NativeTabBar> {
   // 바가 여러 개 만들어져도 상태를 섞지 않도록 채널 이름을 매번 다르게 한다.
   static int _channelSequence = 0;
   late final MethodChannel _channel = MethodChannel(
-    'today_mood/tab_bar_${_channelSequence++}',
+    'wolody/tab_bar_${_channelSequence++}',
   );
 
   @override
@@ -82,7 +82,7 @@ class _NativeTabBarState extends State<NativeTabBar> {
   Widget build(BuildContext context) {
     if (!Platform.isIOS) return const SizedBox.shrink();
     return UiKitView(
-      viewType: 'today_mood/tab_bar',
+      viewType: 'wolody/tab_bar',
       creationParams: {
         'channelName': _channel.name,
         'selectedIndex': widget.selectedIndex,

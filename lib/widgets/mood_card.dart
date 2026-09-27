@@ -6,22 +6,28 @@ import 'package:intl/intl.dart';
 
 import '../models/mood.dart';
 import '../models/mood_entry.dart';
+import '../services/mood_storage.dart';
 import '../services/photo_storage.dart';
 import '../theme.dart';
 import 'wooldy_mood_portrait.dart';
 import 'wolody_icon.dart';
 import 'photo_viewer.dart';
+import 'skeleton.dart';
 
 class MoodCard extends StatefulWidget {
   final MoodEntry entry;
   final VoidCallback onDelete;
   final VoidCallback onTap;
 
+  /// false면 밀어서 수정/삭제하는 동작 없이 누르기만 받는다(휴지통 등).
+  final bool swipeable;
+
   const MoodCard({
     super.key,
     required this.entry,
     required this.onDelete,
     required this.onTap,
+    this.swipeable = true,
   });
 
   @override
@@ -96,21 +102,23 @@ class _MoodCardState extends State<MoodCard> {
     return Stack(
       clipBehavior: Clip.none,
       children: [
-        _action(
-          left: true,
-          color: const Color(0xFF80A4FF),
-          icon: 'pencil 1.svg',
-          onPressed: () {
-            _closeActions();
-            widget.onTap();
-          },
-        ),
-        _action(
-          left: false,
-          color: const Color(0xFFE92F38),
-          icon: 'trash.fill 1.svg',
-          onPressed: widget.onDelete,
-        ),
+        if (widget.swipeable) ...[
+          _action(
+            left: true,
+            color: const Color(0xFF80A4FF),
+            icon: 'pencil 1.svg',
+            onPressed: () {
+              _closeActions();
+              widget.onTap();
+            },
+          ),
+          _action(
+            left: false,
+            color: const Color(0xFFE92F38),
+            icon: 'trash.fill 1.svg',
+            onPressed: widget.onDelete,
+          ),
+        ],
         AnimatedContainer(
           duration: _dragging
               ? Duration.zero
@@ -119,8 +127,8 @@ class _MoodCardState extends State<MoodCard> {
           transform: Matrix4.translationValues(_offset, 0, 0),
           transformAlignment: Alignment.topLeft,
           child: GestureDetector(
-            onHorizontalDragUpdate: _onDragUpdate,
-            onHorizontalDragEnd: _onDragEnd,
+            onHorizontalDragUpdate: widget.swipeable ? _onDragUpdate : null,
+            onHorizontalDragEnd: widget.swipeable ? _onDragEnd : null,
             onTap: () {
               if (_offset != 0) {
                 _closeActions();
@@ -229,16 +237,29 @@ class _MoodCardState extends State<MoodCard> {
                           width: double.infinity,
                           height: 140,
                           fit: BoxFit.cover,
-                          errorBuilder: (context, error, stackTrace) =>
-                              Container(
-                                height: 160,
-                                alignment: Alignment.center,
-                                color: WolodyColors.surfaceRaised,
-                                child: const Icon(
-                                  CupertinoIcons.photo,
-                                  color: WolodyColors.textSecondary,
+                          // 사진을 풀어 그리는 동안 빈칸 대신 스켈레톤을 보여준다.
+                          frameBuilder: (context, child, frame, sync) =>
+                              sync || frame != null
+                              ? child
+                              : const Shimmer(
+                                  child: SkeletonBox(height: 140, radius: 14),
                                 ),
-                              ),
+                          errorBuilder: (context, error, stackTrace) =>
+                              // 새 기기에서 로그인한 직후처럼 사진을 아직 받는 중이면
+                              // 스켈레톤을, 정말 없는 사진이면 사진 아이콘을 보여준다.
+                              MoodStorage.syncing.value
+                              ? const Shimmer(
+                                  child: SkeletonBox(height: 140, radius: 14),
+                                )
+                              : Container(
+                                  height: 160,
+                                  alignment: Alignment.center,
+                                  color: WolodyColors.surfaceRaised,
+                                  child: const Icon(
+                                    CupertinoIcons.photo,
+                                    color: WolodyColors.textSecondary,
+                                  ),
+                                ),
                         ),
                       ),
                     ),

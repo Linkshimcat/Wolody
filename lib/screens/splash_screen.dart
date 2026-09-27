@@ -1,7 +1,7 @@
 import 'package:flutter/cupertino.dart';
 
 import '../theme.dart';
-import 'root_screen.dart';
+import 'auth_gate.dart';
 
 class SplashScreen extends StatefulWidget {
   final Future<void> initialization;
@@ -41,7 +41,7 @@ class _SplashScreenState extends State<SplashScreen>
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
       PageRouteBuilder<void>(
-        pageBuilder: (_, _, _) => const RootScreen(),
+        pageBuilder: (_, _, _) => const AuthGate(),
         transitionDuration: const Duration(milliseconds: 240),
         transitionsBuilder: (_, animation, _, child) =>
             FadeTransition(opacity: animation, child: child),

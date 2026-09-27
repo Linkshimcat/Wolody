@@ -27,5 +27,28 @@ import UIKit
     NativeTabBarBridge.register(
       with: engineBridge.pluginRegistry.registrar(forPlugin: "NativeTabBarBridge")!
     )
+    registerHaptics(
+      messenger: engineBridge.pluginRegistry.registrar(forPlugin: "Haptics")!.messenger()
+    )
+  }
+
+  /// Flutter의 HapticFeedback에는 없는 iOS 알림 햅틱(성공·경고·오류)을 열어 준다.
+  private func registerHaptics(messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(name: "wolody/haptics", binaryMessenger: messenger)
+    let generator = UINotificationFeedbackGenerator()
+    channel.setMethodCallHandler { call, result in
+      guard call.method == "notification" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      let type: UINotificationFeedbackGenerator.FeedbackType
+      switch call.arguments as? String {
+      case "success": type = .success
+      case "warning": type = .warning
+      default: type = .error
+      }
+      generator.notificationOccurred(type)
+      result(nil)
+    }
   }
 }

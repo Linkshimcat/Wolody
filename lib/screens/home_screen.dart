@@ -4,13 +4,11 @@ import 'package:flutter/services.dart';
 import 'dart:ui' show ImageFilter;
 
 import '../models/mood_entry.dart';
-import '../services/live_activity_service.dart';
 import '../services/mood_editor.dart';
 import '../services/mood_storage.dart';
-import '../services/photo_storage.dart';
-import '../services/widget_service.dart';
 import '../theme.dart';
 import '../widgets/mood_card.dart';
+import '../widgets/skeleton.dart';
 import '../widgets/primary_action_button.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -168,12 +166,8 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _deleteMood(MoodEntry entry) async {
     HapticFeedback.mediumImpact();
     setState(() => _entries.removeWhere((e) => e.id == entry.id));
-    await _storage.save(_entries);
-    if (entry.imageFileName != null) {
-      await PhotoStorage.delete(entry.imageFileName!);
-    }
-    await LiveActivityService.refresh();
-    await WidgetService.refresh();
+    // 바로 지우지 않고 휴지통(설정 → 삭제된 기록)으로 옮긴다.
+    await deleteMoodEntry(entry);
   }
 
   @override
@@ -209,17 +203,12 @@ class _HomeScreenState extends State<HomeScreen> {
               child: _HomeBanner(completed: recordedToday),
             ),
           ),
-          if (MoodStorage.syncing.value)
-            const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(24, 8, 24, 0),
-                child: _SyncBadge(),
-              ),
-            ),
-          if (_loading)
-            const SliverFillRemaining(
-              hasScrollBody: false,
-              child: Center(child: CupertinoActivityIndicator()),
+          // 동기화는 알림 없이 뒤에서 조용히 돈다. 다만 새 기기에서 처음 로그인해
+          // 아직 받아온 기록이 없을 때는 빈 화면 대신 카드 모양 스켈레톤을 보여준다.
+          if (_loading || (_entries.isEmpty && MoodStorage.syncing.value))
+            const SliverPadding(
+              padding: EdgeInsets.fromLTRB(24, 30, 24, kBottomNavSpace),
+              sliver: SliverToBoxAdapter(child: MoodListSkeleton()),
             )
           else if (_entries.isEmpty)
             SliverPadding(
@@ -498,38 +487,6 @@ class _HomeBannerState extends State<_HomeBanner> {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// 클라우드 동기화가 도는 동안 상단에 표시되는 작은 배지.
-class _SyncBadge extends StatelessWidget {
-  const _SyncBadge();
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-        decoration: BoxDecoration(
-          color: CupertinoColors.secondarySystemBackground.resolveFrom(context),
-          borderRadius: BorderRadius.circular(14),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const CupertinoActivityIndicator(radius: 8),
-            const SizedBox(width: 8),
-            Text(
-              '동기화 중..',
-              style: TextStyle(
-                fontSize: 12,
-                color: CupertinoColors.secondaryLabel.resolveFrom(context),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }

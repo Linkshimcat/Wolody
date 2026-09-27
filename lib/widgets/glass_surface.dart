@@ -34,7 +34,7 @@ class GlassSurface extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         UiKitView(
-          viewType: 'today_mood/glass',
+          viewType: 'wolody/glass',
           creationParams: {
             'capsule': capsule,
             'radius': radius,
@@ -102,7 +102,7 @@ class _GlassTabBarSurfaceState extends State<GlassTabBarSurface> {
   static const _lensOverflow = 16.0;
   static int _channelSequence = 0;
   late final MethodChannel _channel = MethodChannel(
-    'today_mood/glass_tab_bar_${_channelSequence++}',
+    'wolody/glass_tab_bar_${_channelSequence++}',
   );
 
   void _updateNativeSelection() {
@@ -139,7 +139,7 @@ class _GlassTabBarSurfaceState extends State<GlassTabBarSurface> {
             right: -_lensOverflow,
             bottom: -_lensOverflow,
             child: UiKitView(
-              viewType: 'today_mood/glass_tab_bar',
+              viewType: 'wolody/glass_tab_bar',
               creationParams: {
                 'channelName': _channel.name,
                 'selectedIndex': widget.selectedIndex,

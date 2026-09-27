@@ -1,0 +1,8 @@
+// 구글·카카오 인앱 로그인이 앱으로 돌아올 때 쓰는 URL 스킴 값.
+// lib/services/auth_config.dart의 키와 같은 값을 넣는다(공개용 값이라 커밋해도 된다).
+
+// Google iOS 클라이언트 ID를 거꾸로 쓴 값: com.googleusercontent.apps.<ID 앞부분>
+GOOGLE_REVERSED_CLIENT_ID = com.googleusercontent.apps.542936341445-to5pgsbr9oh73uvnvcktori0ccmjtk92
+
+// Kakao 네이티브 앱 키
+KAKAO_NATIVE_APP_KEY = 7eb2c801338a24d4f83dff2d0c703d2d

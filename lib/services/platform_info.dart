@@ -14,7 +14,7 @@ class PlatformInfo {
     if (!Platform.isIOS) return 0;
     final cached = _iosMajor;
     if (cached != null) return cached;
-    const channel = MethodChannel('today_mood/platform_info');
+    const channel = MethodChannel('wolody/platform_info');
     final version = await channel.invokeMethod<int>('getOsMajorVersion') ?? 0;
     _iosMajor = version;
     return version;

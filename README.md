@@ -4,7 +4,7 @@
 
 ## Why? 이 프로젝트를 만들었는가
 - 🤔정의: 이 프로젝트는 Flutter에 더 친숙해지기 위해, 그리고 미림 소프트웨어 챌린지 하위 버전이자 테스트 버전을 만든 이유 입니다.
-- today_Mood 설명: 간단하게 이모티콘 , 글쓰기, 사진 넣기 등 사용자 입력으로 사용자의 하루를 기록합니다.
+- Wolody 설명: 간단하게 이모티콘 , 글쓰기, 사진 넣기 등 사용자 입력으로 사용자의 하루를 기록합니다.
 - UI는 Google의 Material Design대신 Apple의 IOS 26+ *Liquid Glass를 대체 합니다.
 - 기능: (홈 | 달력 | 설정 | +) / (위젯: Live Activity , Dynamic Island 지원)
 <div align="center">
@@ -27,7 +27,7 @@
 
 <hr>
 
-# todayMood - ✍️ Getting Started
+# Wolody - ✍️ Getting Started
 
 This project is a starting point for a Flutter application.
 

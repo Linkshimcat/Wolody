@@ -1,20 +1,19 @@
-import 'dart:io';
-
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 
 import '../models/mood_entry.dart';
+import '../services/mood_editor.dart';
 import '../services/mood_storage.dart';
-import '../services/photo_storage.dart';
 import '../services/profile_storage.dart';
 import '../theme.dart';
+import '../widgets/memory_card.dart';
 import '../widgets/profile_avatar.dart';
 import 'profile_edit_screen.dart';
+import 'recap_screen.dart';
+import 'reminder_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
-  final VoidCallback onOpenSettings;
-
-  const ProfileScreen({super.key, required this.onOpenSettings});
+  const ProfileScreen({super.key});
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -26,9 +25,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
+    // 리캡에서 기록을 고치거나 설정에서 지우면 캐시가 바뀌므로 구독해 둔다.
+    MoodStorage.cache.addListener(_onCacheChanged);
     MoodStorage().load().then((entries) {
       if (mounted) setState(() => _entries = entries);
     });
+  }
+
+  @override
+  void dispose() {
+    MoodStorage.cache.removeListener(_onCacheChanged);
+    super.dispose();
+  }
+
+  void _onCacheChanged() {
+    if (mounted) setState(() => _entries = MoodStorage.cache.value);
+  }
+
+  void _openRecap() {
+    HapticFeedback.lightImpact();
+    Navigator.of(
+      context,
+    ).push(CupertinoPageRoute<void>(builder: (_) => const RecapScreen()));
   }
 
   int get _streak {
@@ -62,9 +80,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   void _openProfileEdit() {
     HapticFeedback.lightImpact();
+    // 아래쪽 저장 버튼이 탭 바에 가리지 않도록 탭 밖(루트)에서 띄운다.
     Navigator.of(
       context,
+      rootNavigator: true,
     ).push(CupertinoPageRoute<void>(builder: (_) => const ProfileEditScreen()));
+  }
+
+  void _openSettings() {
+    HapticFeedback.lightImpact();
+    // 마이 탭 Navigator에 쌓아 탭 바를 남기고 가장자리 스와이프로 돌아오게 한다.
+    Navigator.of(
+      context,
+    ).push(CupertinoPageRoute<void>(builder: (_) => const ReminderScreen()));
   }
 
   @override
@@ -99,10 +127,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ),
                     CupertinoButton(
                       padding: EdgeInsets.zero,
-                      onPressed: () {
-                        HapticFeedback.lightImpact();
-                        widget.onOpenSettings();
-                      },
+                      onPressed: _openSettings,
                       child: const Icon(CupertinoIcons.gear_alt_fill, size: 24),
                     ),
                   ],
@@ -180,22 +205,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
             SliverPadding(
               padding: const EdgeInsets.fromLTRB(24, 72, 24, 14),
               sliver: SliverToBoxAdapter(
-                child: Row(
-                  children: [
-                    const Expanded(
-                      child: Text(
-                        'Wolody의 리캡',
-                        style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.w700,
-                        ),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: _openRecap,
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 6),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            'Wolody의 리캡',
+                            style: TextStyle(
+                              fontFamily: 'BM Jua',
+                              fontSize: 22,
+                            ),
+                          ),
+                          SizedBox(width: 6),
+                          Icon(
+                            CupertinoIcons.chevron_right,
+                            size: 20,
+                            color: CupertinoColors.white,
+                          ),
+                        ],
                       ),
                     ),
-                    Icon(
-                      CupertinoIcons.chevron_right,
-                      color: WolodyColors.textSecondary,
-                    ),
-                  ],
+                  ),
                 ),
               ),
             ),
@@ -216,19 +252,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ),
               )
             else
-              SliverToBoxAdapter(
-                child: SizedBox(
-                  height: 250,
-                  child: ListView.separated(
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
-                    scrollDirection: Axis.horizontal,
-                    itemCount: memories.length,
-                    separatorBuilder: (_, _) => const SizedBox(width: 12),
-                    itemBuilder: (context, index) =>
-                        _MemoryCard(entry: memories[index]),
-                  ),
-                ),
-              ),
+              SliverToBoxAdapter(child: _MemoryCarousel(memories: memories)),
             const SliverToBoxAdapter(child: SizedBox(height: 110)),
           ],
         ),
@@ -296,53 +320,69 @@ class _ProfileStat extends StatelessWidget {
   }
 }
 
-class _MemoryCard extends StatelessWidget {
-  final MoodEntry entry;
+/// Figma처럼 가운데 카드는 크게, 옆 카드는 뒤로 기울여 보여주는 커버플로 캐러셀.
+class _MemoryCarousel extends StatefulWidget {
+  final List<MoodEntry> memories;
 
-  const _MemoryCard({required this.entry});
+  const _MemoryCarousel({required this.memories});
+
+  @override
+  State<_MemoryCarousel> createState() => _MemoryCarouselState();
+}
+
+class _MemoryCarouselState extends State<_MemoryCarousel> {
+  final _controller = PageController(viewportFraction: 0.5);
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final path = PhotoStorage.pathFor(entry.imageFileName!);
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(22),
-      child: SizedBox(
-        width: 188,
-        height: 250,
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            Image.file(File(path), fit: BoxFit.cover),
-            const DecoratedBox(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Color(0x990D1118),
-                    Color(0x000D1118),
-                    Color(0xCC0D1118),
-                  ],
-                  stops: [0, 0.38, 1],
+    return SizedBox(
+      height: 260,
+      child: PageView.builder(
+        controller: _controller,
+        itemCount: widget.memories.length,
+        onPageChanged: (_) => HapticFeedback.selectionClick(),
+        itemBuilder: (context, index) => AnimatedBuilder(
+          animation: _controller,
+          builder: (context, child) {
+            final page =
+                _controller.hasClients && _controller.position.haveDimensions
+                ? _controller.page ?? 0
+                : 0.0;
+            // 가운데에서 멀어질수록(-1~1) 작아지고 바깥쪽으로 기운다.
+            final offset = (index - page).clamp(-1.0, 1.0);
+            return Transform(
+              alignment: offset > 0
+                  ? Alignment.centerLeft
+                  : Alignment.centerRight,
+              transform: Matrix4.identity()
+                ..setEntry(3, 2, 0.0015)
+                ..rotateY(-offset * 0.45)
+                ..scaleByDouble(
+                  1 - offset.abs() * 0.15,
+                  1 - offset.abs() * 0.15,
+                  1,
+                  1,
                 ),
-              ),
+              child: child,
+            );
+          },
+          child: Center(
+            child: MemoryCard(
+              entry: widget.memories[index],
+              width: 188,
+              height: 250,
+              onTap: () {
+                HapticFeedback.lightImpact();
+                editMoodEntry(context, widget.memories[index]);
+              },
             ),
-            Positioned(
-              left: 12,
-              right: 12,
-              top: 16,
-              child: Text(
-                entry.note.isEmpty ? '오늘의 마음' : entry.note,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ),
-          ],
+          ),
         ),
       ),
     );

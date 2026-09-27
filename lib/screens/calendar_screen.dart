@@ -3,13 +3,11 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import '../models/mood_entry.dart';
-import '../services/live_activity_service.dart';
 import '../services/mood_editor.dart';
 import '../services/mood_storage.dart';
-import '../services/photo_storage.dart';
-import '../services/widget_service.dart';
 import '../theme.dart';
 import '../widgets/mood_card.dart';
+import '../widgets/skeleton.dart';
 import '../widgets/wolody_icon.dart';
 
 class CalendarScreen extends StatefulWidget {
@@ -27,11 +25,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
   late DateTime _month;
   late DateTime _selected;
   bool _loading = true;
+  // "M월 yyyy ›"를 누르면 달력 격자 자리에 년·월·일 휠이 펼쳐진다.
+  bool _pickingDate = false;
 
   @override
   void initState() {
     super.initState();
     MoodStorage.cache.addListener(_onCacheChanged);
+    MoodStorage.syncing.addListener(_onSyncingChanged);
     final today = _dateOnly(DateTime.now());
     _month = DateTime(today.year, today.month);
     _selected = today;
@@ -41,7 +42,12 @@ class _CalendarScreenState extends State<CalendarScreen> {
   @override
   void dispose() {
     MoodStorage.cache.removeListener(_onCacheChanged);
+    MoodStorage.syncing.removeListener(_onSyncingChanged);
     super.dispose();
+  }
+
+  void _onSyncingChanged() {
+    if (mounted) setState(() {});
   }
 
   void _onCacheChanged() {
@@ -74,15 +80,30 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   Future<void> _delete(MoodEntry entry) async {
     HapticFeedback.mediumImpact();
-    final entries = await _storage.load();
-    entries.removeWhere((e) => e.id == entry.id);
-    await _storage.save(entries);
-    if (entry.imageFileName != null) {
-      await PhotoStorage.delete(entry.imageFileName!);
-    }
-    await LiveActivityService.refresh();
-    await WidgetService.refresh();
+    // 바로 지우지 않고 휴지통(설정 → 삭제된 기록)으로 옮긴다.
+    await deleteMoodEntry(entry);
     await _load();
+  }
+
+  void _togglePicker() {
+    HapticFeedback.lightImpact();
+    setState(() => _pickingDate = !_pickingDate);
+  }
+
+  /// 휠에서 날짜를 돌리면 달력의 달과 아래 기록 목록이 바로 따라온다.
+  void _pickDate(DateTime value) {
+    final day = _dateOnly(value);
+    setState(() {
+      _selected = day;
+      _month = DateTime(day.year, day.month);
+    });
+  }
+
+  /// 휠에서 고를 수 있는 가장 이른 연도. 가장 오래된 기록의 해까지만 보여준다.
+  int get _firstYear {
+    final years = _byDay.keys.map((day) => day.year);
+    final now = DateTime.now().year;
+    return years.isEmpty ? now : years.reduce((a, b) => a < b ? a : b);
   }
 
   void _changeMonth(int delta) {
@@ -110,48 +131,68 @@ class _CalendarScreenState extends State<CalendarScreen> {
           ],
         ),
       ),
-      child: _loading
-          ? const Center(child: CupertinoActivityIndicator())
-          : SafeArea(
-              child: CustomScrollView(
-                slivers: [
-                  SliverToBoxAdapter(child: _buildMonthHeader()),
-                  SliverToBoxAdapter(child: _buildWeekdayLabels(context)),
-                  SliverToBoxAdapter(child: _buildGrid(context)),
-                  SliverToBoxAdapter(child: _buildSelectedHeader(context)),
-                  if (selectedEntries.isEmpty)
-                    SliverToBoxAdapter(
-                      child: SizedBox(
-                        height: 216,
-                        child: Center(
-                          child: Text(
-                            '이 날은 기록이 없어요.',
-                            style: const TextStyle(
-                              color: WolodyColors.textSecondary,
-                              fontSize: 15,
-                            ),
-                          ),
+      // 달력 자체는 기록 없이도 그릴 수 있으니 바로 보여주고,
+      // 기록 목록 자리만 불러오는 동안 스켈레톤으로 채운다.
+      child: SafeArea(
+        child: CustomScrollView(
+          slivers: [
+            SliverToBoxAdapter(child: _buildMonthHeader()),
+            SliverToBoxAdapter(
+              child: AnimatedSize(
+                duration: const Duration(milliseconds: 260),
+                curve: Curves.easeOutCubic,
+                alignment: Alignment.topCenter,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 200),
+                  child: _pickingDate
+                      ? _buildDatePicker()
+                      : Column(
+                          key: const ValueKey('grid'),
+                          children: [
+                            _buildWeekdayLabels(context),
+                            _buildGrid(context),
+                          ],
                         ),
-                      ),
-                    )
-                  else
-                    SliverList.builder(
-                      itemCount: selectedEntries.length,
-                      itemBuilder: (context, i) => Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                        child: MoodCard(
-                          entry: selectedEntries[i],
-                          onDelete: () => _delete(selectedEntries[i]),
-                          onTap: () => _edit(selectedEntries[i]),
-                        ),
-                      ),
-                    ),
-                  const SliverToBoxAdapter(
-                    child: SizedBox(height: kBottomNavSpace),
-                  ),
-                ],
+                ),
               ),
             ),
+            SliverToBoxAdapter(child: _buildSelectedHeader(context)),
+            if (_loading || (_byDay.isEmpty && MoodStorage.syncing.value))
+              const SliverPadding(
+                padding: EdgeInsets.fromLTRB(24, 8, 24, 0),
+                sliver: SliverToBoxAdapter(child: MoodListSkeleton(count: 1)),
+              )
+            else if (selectedEntries.isEmpty)
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  height: 216,
+                  child: Center(
+                    child: Text(
+                      '이 날은 기록이 없어요.',
+                      style: const TextStyle(
+                        color: WolodyColors.textSecondary,
+                        fontSize: 15,
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            else
+              SliverList.builder(
+                itemCount: selectedEntries.length,
+                itemBuilder: (context, i) => Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: MoodCard(
+                    entry: selectedEntries[i],
+                    onDelete: () => _delete(selectedEntries[i]),
+                    onTap: () => _edit(selectedEntries[i]),
+                  ),
+                ),
+              ),
+            const SliverToBoxAdapter(child: SizedBox(height: kBottomNavSpace)),
+          ],
+        ),
+      ),
     );
   }
 
@@ -161,35 +202,75 @@ class _CalendarScreenState extends State<CalendarScreen> {
       child: Row(
         children: [
           Expanded(
-            child: Row(
-              children: [
-                Text(
-                  DateFormat('M월 yyyy', 'ko_KR').format(_month),
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _togglePicker,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        DateFormat('M월 yyyy', 'ko_KR').format(_month),
+                        style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
+                          color: _pickingDate
+                              ? WolodyColors.brandBlue
+                              : CupertinoColors.white,
+                        ),
+                      ),
+                      const SizedBox(width: 3),
+                      // 휠이 열리면 iOS 캘린더처럼 셰브런이 아래를 향한다.
+                      AnimatedRotation(
+                        turns: _pickingDate ? 0.25 : 0,
+                        duration: const Duration(milliseconds: 200),
+                        child: const Icon(
+                          CupertinoIcons.chevron_right,
+                          size: 12,
+                          color: WolodyColors.brandBlue,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(width: 3),
-                const Icon(
-                  CupertinoIcons.chevron_right,
-                  size: 12,
-                  color: WolodyColors.brandBlue,
-                ),
-              ],
+              ),
             ),
           ),
-          CupertinoButton(
-            padding: EdgeInsets.zero,
-            onPressed: () => _changeMonth(-1),
-            child: const Icon(CupertinoIcons.chevron_left, size: 20),
-          ),
-          CupertinoButton(
-            padding: EdgeInsets.zero,
-            onPressed: () => _changeMonth(1),
-            child: const Icon(CupertinoIcons.chevron_right, size: 20),
-          ),
+          // 휠로 고르는 동안에는 달 넘기기 버튼을 숨긴다.
+          if (!_pickingDate) ...[
+            CupertinoButton(
+              padding: EdgeInsets.zero,
+              onPressed: () => _changeMonth(-1),
+              child: const Icon(CupertinoIcons.chevron_left, size: 20),
+            ),
+            CupertinoButton(
+              padding: EdgeInsets.zero,
+              onPressed: () => _changeMonth(1),
+              child: const Icon(CupertinoIcons.chevron_right, size: 20),
+            ),
+          ] else
+            const SizedBox(height: 44),
         ],
+      ),
+    );
+  }
+
+  Widget _buildDatePicker() {
+    final today = _dateOnly(DateTime.now());
+    return SizedBox(
+      key: const ValueKey('picker'),
+      height: 260,
+      child: CupertinoDatePicker(
+        mode: CupertinoDatePickerMode.date,
+        dateOrder: DatePickerDateOrder.ymd,
+        initialDateTime: _selected.isAfter(today) ? today : _selected,
+        // ‹ 로 더 이전 달을 골라둔 경우에도 휠이 그 날짜를 보여줄 수 있어야 한다.
+        minimumYear: _selected.year < _firstYear ? _selected.year : _firstYear,
+        maximumDate: DateTime(today.year, today.month, today.day, 23, 59),
+        onDateTimeChanged: _pickDate,
       ),
     );
   }

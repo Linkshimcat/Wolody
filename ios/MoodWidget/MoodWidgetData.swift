@@ -13,7 +13,7 @@ struct MoodWidgetData {
   /// "yyyy-MM-dd" → 그날 기분 색(RRGGBB). 잔디 그리드에 쓴다.
   var colorsByDay: [String: String]
 
-  static let appGroupId = "group.com.linkcat.todayMood"
+  static let appGroupId = "group.com.linkcat.wolody"
   static let storageKey = "widget_payload"
 
   static let placeholder = MoodWidgetData(

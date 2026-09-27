@@ -19,7 +19,7 @@ class _GlassSwitchState extends State<GlassSwitch> {
   // 스위치마다 별도 채널을 써야 상태를 서로 섞지 않는다.
   static int _channelSequence = 0;
   late final MethodChannel _channel = MethodChannel(
-    'today_mood/glass_switch_${_channelSequence++}',
+    'wolody/glass_switch_${_channelSequence++}',
   );
 
   @override
@@ -60,7 +60,7 @@ class _GlassSwitchState extends State<GlassSwitch> {
       width: 51,
       height: 31,
       child: UiKitView(
-        viewType: 'today_mood/glass_switch',
+        viewType: 'wolody/glass_switch',
         creationParams: {
           'value': widget.value,
           'channelName': _channel.name,
