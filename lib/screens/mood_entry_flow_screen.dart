@@ -9,6 +9,7 @@ import '../models/mood.dart';
 import '../models/mood_entry.dart';
 import '../services/photo_storage.dart';
 import '../theme.dart';
+import '../widgets/cover_flow_item.dart';
 import '../widgets/mood_picker_sheet.dart';
 import '../widgets/glass_back_button.dart';
 import '../widgets/primary_action_button.dart';
@@ -226,66 +227,70 @@ class _MoodEntryFlowScreenState extends State<MoodEntryFlowScreen> {
                   itemBuilder: (context, index) {
                     final mood = Mood.all[index];
                     final selected = _selected.contains(mood.emoji);
-                    return Center(
-                      child: GestureDetector(
-                        onTap: () => _toggleMood(mood),
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 180),
-                          width: 198,
-                          height: 360,
-                          decoration: BoxDecoration(
-                            color: WolodyColors.selectorSurface,
-                            borderRadius: BorderRadius.circular(28),
-                            border: Border.all(
-                              color: selected
-                                  ? mood.color
-                                  : const Color(0x00000000),
-                              width: 2,
+                    return CoverFlowItem(
+                      controller: _pageController,
+                      index: index,
+                      child: Center(
+                        child: GestureDetector(
+                          onTap: () => _toggleMood(mood),
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 180),
+                            width: 198,
+                            height: 360,
+                            decoration: BoxDecoration(
+                              color: WolodyColors.selectorSurface,
+                              borderRadius: BorderRadius.circular(28),
+                              border: Border.all(
+                                color: selected
+                                    ? mood.color
+                                    : const Color(0x00000000),
+                                width: 2,
+                              ),
                             ),
-                          ),
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              Positioned(
-                                top: 82,
-                                child: WooldyMoodPortrait(
-                                  faceIndex: mood.faceIndex,
-                                  size: 128,
-                                ),
-                              ),
-                              Positioned(
-                                bottom: 35,
-                                child: Text(
-                                  mood.label,
-                                  style: TextStyle(
-                                    fontFamily: 'BM Jua',
-                                    color: selected
-                                        ? mood.color
-                                        : CupertinoColors.white,
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.w700,
-                                  ),
-                                ),
-                              ),
-                              if (selected)
+                            child: Stack(
+                              alignment: Alignment.center,
+                              children: [
                                 Positioned(
-                                  top: 14,
-                                  right: 14,
-                                  child: Container(
-                                    width: 28,
-                                    height: 28,
-                                    decoration: BoxDecoration(
-                                      color: mood.color,
-                                      shape: BoxShape.circle,
-                                    ),
-                                    child: const Icon(
-                                      CupertinoIcons.checkmark,
-                                      size: 16,
-                                      color: Color(0xFF161E2A),
+                                  top: 82,
+                                  child: WooldyMoodPortrait(
+                                    faceIndex: mood.faceIndex,
+                                    size: 128,
+                                  ),
+                                ),
+                                Positioned(
+                                  bottom: 35,
+                                  child: Text(
+                                    mood.label,
+                                    style: TextStyle(
+                                      fontFamily: 'BM Jua',
+                                      color: selected
+                                          ? mood.color
+                                          : CupertinoColors.white,
+                                      fontSize: 18,
+                                      fontWeight: FontWeight.w700,
                                     ),
                                   ),
                                 ),
-                            ],
+                                if (selected)
+                                  Positioned(
+                                    top: 14,
+                                    right: 14,
+                                    child: Container(
+                                      width: 28,
+                                      height: 28,
+                                      decoration: BoxDecoration(
+                                        color: mood.color,
+                                        shape: BoxShape.circle,
+                                      ),
+                                      child: const Icon(
+                                        CupertinoIcons.checkmark,
+                                        size: 16,
+                                        color: Color(0xFF161E2A),
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
                         ),
                       ),

@@ -8,7 +8,6 @@ import 'package:flutter/widgets.dart' show StringCharacters;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart' as kakao;
 import 'package:path_provider/path_provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'auth_config.dart';
@@ -38,8 +37,6 @@ class LoginException implements Exception {
 ///
 /// 브라우저로 나갔다 돌아오는 웹 로그인과 달리 앱을 벗어나지 않는다.
 class AuthService {
-  static const _skippedKey = 'login_skipped';
-
   static bool _googleReady = false;
 
   /// 구글 SDK는 앱을 켤 때 한 번만 초기화할 수 있어서, 그때 만든 nonce를 기억해 둔다.
@@ -53,6 +50,25 @@ class AuthService {
   static User? get currentUser => isAvailable ? _client.auth.currentUser : null;
 
   static Stream<AuthState> get authChanges => _client.auth.onAuthStateChange;
+
+  /// 구글·카카오 로그인 창이나 카카오톡에서 사용자의 답을 기다리는 중인지.
+  ///
+  /// 카카오톡으로 넘어갔다가 로그인하지 않고 돌아오면 SDK가 끝내 답을 주지 않는다.
+  /// 로그인 화면은 앱으로 돌아온 뒤에도 이 값이 켜져 있으면 로그인을 그만둔 것으로 본다.
+  static bool get awaitingProvider => _providerStep != null;
+  static Object? _providerStep;
+
+  /// [step]을 기다리는 동안 [awaitingProvider]를 켠다. 그만둔 예전 시도가 뒤늦게
+  /// 끝나도 새 시도의 표시를 끄지 않도록 자기 표시일 때만 지운다.
+  static Future<T> _awaitProvider<T>(Future<T> Function() step) async {
+    final marker = Object();
+    _providerStep = marker;
+    try {
+      return await step();
+    } finally {
+      if (identical(_providerStep, marker)) _providerStep = null;
+    }
+  }
 
   /// 앱을 켤 때 한 번 부른다. 키가 없는 로그인은 건너뛴다.
   static Future<void> init() async {
@@ -82,8 +98,9 @@ class AuthService {
       LoginProvider.kakao => await _signInWithKakao(),
     };
     if (signedIn) {
-      // 로그인한 SNS의 이름·프로필 사진을 Wolody 프로필로 가져온다.
-      await _applySocialProfile();
+      // 계정에 저장된 프로필이 있으면 그걸 쓰고, 처음 로그인이면
+      // 로그인한 SNS의 이름·프로필 사진으로 Wolody 프로필을 만든다.
+      if (!await ProfileStorage.pullFromCloud()) await _applySocialProfile();
       // 기기에만 있던 기록을 계정으로 올리고, 계정에 있던 기록을 내려받는다.
       await MoodStorage.syncToCloud();
     }
@@ -150,11 +167,17 @@ class AuthService {
     }
     final GoogleSignInAccount account;
     try {
-      account = await GoogleSignIn.instance.authenticate(
-        scopeHint: const ['email', 'profile'],
+      account = await _awaitProvider(
+        () => GoogleSignIn.instance.authenticate(
+          scopeHint: const ['email', 'profile'],
+        ),
       );
     } on GoogleSignInException catch (e) {
-      if (e.code == GoogleSignInExceptionCode.canceled) return false;
+      // 창을 닫았거나 앱을 벗어나 로그인이 끊긴 경우 — 다시 누르면 된다.
+      if (e.code == GoogleSignInExceptionCode.canceled ||
+          e.code == GoogleSignInExceptionCode.interrupted) {
+        return false;
+      }
       throw LoginException('구글 로그인에 실패했어요. (${e.code.name})');
     }
     final idToken = account.authentication.idToken;
@@ -183,23 +206,29 @@ class AuthService {
       if (await kakao.isKakaoTalkInstalled()) {
         try {
           // 카카오톡 앱이 있으면 카카오톡으로 바로 로그인한다.
-          token = await kakao.UserApi.instance.loginWithKakaoTalk(nonce: nonce);
+          token = await _awaitProvider(
+            () => kakao.UserApi.instance.loginWithKakaoTalk(nonce: nonce),
+          );
         } on PlatformException catch (e) {
           if (e.code == 'CANCELED') return false;
           // 카카오톡에 연결된 계정이 없는 경우 등 — 카카오계정 로그인으로 넘어간다.
-          token = await kakao.UserApi.instance.loginWithKakaoAccount(
-            nonce: nonce,
+          token = await _awaitProvider(
+            () => kakao.UserApi.instance.loginWithKakaoAccount(nonce: nonce),
           );
         }
       } else {
         // 카카오톡이 없으면 앱 안에 뜨는 카카오계정 로그인 창을 쓴다.
-        token = await kakao.UserApi.instance.loginWithKakaoAccount(
-          nonce: nonce,
+        token = await _awaitProvider(
+          () => kakao.UserApi.instance.loginWithKakaoAccount(nonce: nonce),
         );
       }
     } on PlatformException catch (e) {
       if (e.code == 'CANCELED') return false;
       throw LoginException('카카오 로그인에 실패했어요. (${e.code})');
+    } on kakao.KakaoAuthException catch (e) {
+      // 카카오톡 로그인 화면에서 취소를 누르면 access_denied로 돌아온다.
+      if (e.error == kakao.AuthErrorCause.accessDenied) return false;
+      throw LoginException('카카오 로그인에 실패했어요. ($e)');
     } on kakao.KakaoException catch (e) {
       throw LoginException('카카오 로그인에 실패했어요. ($e)');
     }
@@ -256,6 +285,7 @@ class AuthService {
     await TrashStorage.clear();
     await _client.auth.signOut();
     await MoodStorage.clearLocal();
+    await ProfileStorage.resetLocal();
   }
 
   /// 로그인한 계정의 제공자(구글/카카오).
@@ -277,17 +307,6 @@ class AuthService {
         meta['name'] as String? ??
         meta['nickname'] as String? ??
         meta['full_name'] as String?;
-  }
-
-  /// 첫 화면에서 "로그인 없이 시작하기"를 눌렀는지.
-  static Future<bool> hasSkippedLogin() async {
-    final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_skippedKey) ?? false;
-  }
-
-  static Future<void> skipLogin() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_skippedKey, true);
   }
 
   static String _randomNonce() {

@@ -5,34 +5,36 @@ import '../models/mood.dart';
 import '../models/mood_entry.dart';
 import '../services/mood_editor.dart';
 import '../services/mood_storage.dart';
+import '../services/profile_storage.dart';
 import '../theme.dart';
 import '../widgets/memory_card.dart';
 import '../widgets/wolody_top_bar.dart';
 import '../widgets/wooldy_mood_portrait.dart';
 
-/// 마이 → Wolody의 리캡. 달마다 기록을 요약하고 그 달의 사진 기록을 모아 보여준다.
+/// 마이 → {닉네임}의 리캡. 달마다 기록을 요약하고 그 달의 사진 기록을 모아 보여준다.
 class RecapScreen extends StatelessWidget {
   const RecapScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final nickname = ProfileStorage.profile.value.nickname;
     return CupertinoPageScaffold(
       backgroundColor: WolodyColors.background,
       child: SafeArea(
         bottom: false,
         child: Column(
           children: [
-            const WolodyTopBar(title: 'Wolody의 리캡'),
+            WolodyTopBar(title: '$nickname의 리캡'),
             Expanded(
               child: ValueListenableBuilder<List<MoodEntry>>(
                 valueListenable: MoodStorage.cache,
                 builder: (context, entries, _) {
                   final months = MonthRecap.group(entries);
                   if (months.isEmpty) {
-                    return const Center(
+                    return Center(
                       child: Text(
-                        '아직 Wolody의 리캡이 없어요.',
-                        style: TextStyle(
+                        '아직 $nickname의 리캡이 없어요.',
+                        style: const TextStyle(
                           color: WolodyColors.textSecondary,
                           fontSize: 14,
                         ),

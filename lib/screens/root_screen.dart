@@ -11,6 +11,7 @@ import '../widgets/glass_surface.dart';
 import '../widgets/native_tab_bar.dart';
 import '../widgets/profile_avatar.dart';
 import '../widgets/wolody_icon.dart';
+import '../widgets/wolody_toast.dart';
 import 'calendar_screen.dart';
 import 'home_screen.dart';
 import 'profile_screen.dart';
@@ -160,7 +161,11 @@ class _RootScreenState extends State<RootScreen> {
           left: 58,
           right: 58,
           child: IgnorePointer(
-            child: _SavedToast(visible: _showSavedToast && !coveredByModal),
+            child: WolodyToast(
+              visible: _showSavedToast && !coveredByModal,
+              icon: CupertinoIcons.checkmark_circle_fill,
+              message: '오늘의 기록을 완료 했어요!',
+            ),
           ),
         ),
         // 판별이 끝나기 전에 Flutter 바가 잠깐 보였다 바뀌지 않도록 기다린다.
@@ -351,61 +356,6 @@ class _RootScreenState extends State<RootScreen> {
         CupertinoIcons.add,
         size: 28,
         color: WolodyColors.brandBlue,
-      ),
-    );
-  }
-}
-
-/// "오늘의 기록을 완료 했어요!" 토스트. 위에서 살짝 튕기듯 내려오고, 위로 빠지며 사라진다.
-class _SavedToast extends StatelessWidget {
-  final bool visible;
-
-  const _SavedToast({required this.visible});
-
-  @override
-  Widget build(BuildContext context) {
-    return AnimatedSlide(
-      offset: visible ? Offset.zero : const Offset(0, -1.6),
-      duration: Duration(milliseconds: visible ? 520 : 320),
-      curve: visible ? Curves.easeOutBack : Curves.easeInCubic,
-      child: AnimatedScale(
-        scale: visible ? 1 : 0.9,
-        duration: Duration(milliseconds: visible ? 520 : 320),
-        curve: visible ? Curves.easeOutBack : Curves.easeInCubic,
-        child: AnimatedOpacity(
-          opacity: visible ? 1 : 0,
-          duration: Duration(milliseconds: visible ? 220 : 280),
-          curve: Curves.easeOut,
-          child: Container(
-            height: 48,
-            decoration: BoxDecoration(
-              color: const Color(0xFF202838),
-              borderRadius: BorderRadius.circular(28),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x66000000),
-                  blurRadius: 18,
-                  offset: Offset(0, 6),
-                ),
-              ],
-            ),
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  CupertinoIcons.checkmark_circle_fill,
-                  size: 24,
-                  color: CupertinoColors.white,
-                ),
-                SizedBox(width: 12),
-                Text(
-                  '오늘의 기록을 완료 했어요!',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
-                ),
-              ],
-            ),
-          ),
-        ),
       ),
     );
   }

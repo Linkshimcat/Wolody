@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -5,41 +7,113 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../services/auth_service.dart';
 import '../services/haptics.dart';
 import '../theme.dart';
-import '../widgets/glass_back_button.dart';
+import '../widgets/wolody_toast.dart';
 
 /// Figma "로그인" 화면. 구글·카카오 인앱 로그인 버튼을 보여준다.
 ///
-/// 첫 실행에서는 [onSkip]이 있어 "로그인 없이 시작하기"를 보여주고,
-/// 계정 정보에서 열 때는 뒤로 가기 버튼을 두고 로그인에 성공하면 닫힌다.
+/// 로그인해야 앱을 쓸 수 있다. 로그인에 성공하면 AuthGate가 홈으로 바꾼다.
 class LoginScreen extends StatefulWidget {
-  final VoidCallback? onSkip;
-
-  const LoginScreen({super.key, this.onSkip});
+  const LoginScreen({super.key});
 
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
+  /// 카카오톡에서 로그인을 마치고 돌아왔다면 이 안에 SDK가 답을 준다.
+  static const _returnGrace = Duration(seconds: 2);
+
   LoginProvider? _loading;
 
+  /// 로그인 시도 번호. 그만둔 시도의 결과가 뒤늦게 와도 화면을 건드리지 않게 한다.
+  int _attempt = 0;
+
+  /// 로그인하는 동안 카카오톡 등으로 앱을 벗어났는지.
+  bool _leftApp = false;
+  Timer? _returnCheck;
+
+  bool _showCanceledToast = false;
+  Timer? _toastTimer;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    _returnCheck?.cancel();
+    _toastTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (_loading == null) return;
+    if (state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.paused) {
+      _leftApp = true;
+      _returnCheck?.cancel();
+    } else if (state == AppLifecycleState.resumed && _leftApp) {
+      _leftApp = false;
+      _returnCheck = Timer(_returnGrace, _abandonIfStuck);
+    }
+  }
+
+  /// 카카오톡으로 넘어갔다가 로그인하지 않고 돌아오면 SDK가 끝내 답을 주지 않아
+  /// 버튼이 계속 돌기만 한다. 기다림을 풀어 다시 누를 수 있게 한다.
+  void _abandonIfStuck() {
+    if (!mounted || _loading == null || !AuthService.awaitingProvider) return;
+    _attempt++;
+    setState(() => _loading = null);
+    _showCanceled();
+  }
+
   Future<void> _signIn(LoginProvider provider) async {
-    if (_loading != null) return;
+    if (_loading != null) {
+      // 다른 로그인이 진행 중이라 누를 수 없다.
+      Haptics.error();
+      return;
+    }
     HapticFeedback.lightImpact();
-    setState(() => _loading = provider);
+    final attempt = ++_attempt;
+    _leftApp = false;
+    _toastTimer?.cancel();
+    setState(() {
+      _loading = provider;
+      _showCanceledToast = false;
+    });
     try {
       final signedIn = await AuthService.signIn(provider);
-      if (!signedIn || !mounted) return;
-      HapticFeedback.mediumImpact();
-      // 계정 정보에서 연 경우 닫는다. 첫 화면이면 AuthGate가 홈으로 바꾼다.
-      if (widget.onSkip == null) Navigator.of(context).pop();
+      if (attempt != _attempt || !mounted) return;
+      if (signedIn) {
+        Haptics.success();
+      } else {
+        // 로그인 창을 닫고 나왔다.
+        _showCanceled();
+      }
     } on LoginException catch (e) {
-      if (mounted) _showError(e.message);
+      if (attempt == _attempt && mounted) _showError(e.message);
     } catch (e) {
-      if (mounted) _showError('로그인에 실패했어요. 잠시 후 다시 시도해 주세요.');
+      if (attempt == _attempt && mounted) {
+        _showError('로그인에 실패했어요. 잠시 후 다시 시도해 주세요.');
+      }
     } finally {
-      if (mounted) setState(() => _loading = null);
+      if (attempt == _attempt && mounted) {
+        _returnCheck?.cancel();
+        setState(() => _loading = null);
+      }
     }
+  }
+
+  void _showCanceled() {
+    setState(() => _showCanceledToast = true);
+    _toastTimer?.cancel();
+    _toastTimer = Timer(const Duration(milliseconds: 2500), () {
+      if (mounted) setState(() => _showCanceledToast = false);
+    });
   }
 
   void _showError(String message) {
@@ -62,7 +136,8 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final bottom = MediaQuery.paddingOf(context).bottom;
+    final padding = MediaQuery.paddingOf(context);
+    final bottom = padding.bottom;
     return CupertinoPageScaffold(
       backgroundColor: WolodyColors.background,
       child: Stack(
@@ -123,43 +198,34 @@ class _LoginScreenState extends State<LoginScreen> {
                         loading: _loading == LoginProvider.kakao,
                         onPressed: () => _signIn(LoginProvider.kakao),
                       ),
-                      if (widget.onSkip != null)
-                        CupertinoButton(
-                          padding: const EdgeInsets.only(top: 14),
-                          onPressed: _loading != null
-                              ? null
-                              : () {
-                                  HapticFeedback.lightImpact();
-                                  widget.onSkip!();
-                                },
-                          child: const Text(
-                            '로그인 없이 시작하기',
-                            style: TextStyle(
-                              color: WolodyColors.textSecondary,
-                              fontSize: 14,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        )
-                      else
-                        const SizedBox(height: 14),
+                      // const Padding(
+                      //   padding: EdgeInsets.only(top: 18),
+                      //   child: Text(
+                      //     '기록은 로그인한 계정에 안전하게 저장돼요.',
+                      //     style: TextStyle(
+                      //       color: WolodyColors.textSecondary,
+                      //       fontSize: 12,
+                      //     ),
+                      //   ),
+                      // ),
                     ],
                   ),
                 ),
               ],
             ),
           ),
-          if (widget.onSkip == null)
-            Positioned(
-              left: 24,
-              top: MediaQuery.paddingOf(context).top + 14,
-              child: GlassBackButton(
-                onPressed: () {
-                  HapticFeedback.lightImpact();
-                  Navigator.of(context).pop();
-                },
+          Positioned(
+            top: padding.top + 8,
+            left: 24,
+            right: 24,
+            child: IgnorePointer(
+              child: WolodyToast(
+                visible: _showCanceledToast,
+                icon: CupertinoIcons.exclamationmark_circle_fill,
+                message: '로그인이 취소됐어요. 다시 로그인해 주세요.',
               ),
             ),
+          ),
         ],
       ),
     );

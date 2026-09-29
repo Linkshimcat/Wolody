@@ -106,8 +106,8 @@ class NotificationService {
         final minute = minuteOfDay % 60;
         await _plugin.zonedSchedule(
           id: id++,
-          title: '오늘도 기록해볼까요? 🙂',
-          body: '오늘의 기분을 카드로 기록해보세요',
+          title: '울디가 왔어요!',
+          body: '오늘의 기분, 울디 카드로 기록해보세요.',
           scheduledDate: everyDay
               ? _nextDailyInstance(hour, minute)
               : _nextInstanceOf(weekday, hour, minute),

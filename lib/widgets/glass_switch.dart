@@ -56,8 +56,9 @@ class _GlassSwitchState extends State<GlassSwitch> {
       return CupertinoSwitch(value: widget.value, onChanged: widget.onChanged);
     }
     return SizedBox(
-      // UISwitch 기본 크기.
-      width: 51,
+      // iOS 26 UISwitch(63pt)까지 담는 크기. 네이티브 쪽에서 오른쪽 끝에 맞추므로
+      // 폭이 더 좁은 예전 스위치도 오른쪽 여백이 똑같이 유지된다.
+      width: 64,
       height: 31,
       child: UiKitView(
         viewType: 'wolody/glass_switch',

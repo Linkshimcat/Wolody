@@ -106,6 +106,17 @@ class _CalendarScreenState extends State<CalendarScreen> {
     return years.isEmpty ? now : years.reduce((a, b) => a < b ? a : b);
   }
 
+  /// 오늘이 있는 달로 돌아가 오늘을 고른다. 휠이 열려 있으면 달력으로 접는다.
+  void _goToToday() {
+    HapticFeedback.lightImpact();
+    final today = _dateOnly(DateTime.now());
+    setState(() {
+      _selected = today;
+      _month = DateTime(today.year, today.month);
+      _pickingDate = false;
+    });
+  }
+
   void _changeMonth(int delta) {
     HapticFeedback.lightImpact();
     setState(() => _month = DateTime(_month.year, _month.month + delta));
@@ -239,6 +250,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
               ),
             ),
           ),
+          _buildTodayButton(),
           // 휠로 고르는 동안에는 달 넘기기 버튼을 숨긴다.
           if (!_pickingDate) ...[
             CupertinoButton(
@@ -254,6 +266,36 @@ class _CalendarScreenState extends State<CalendarScreen> {
           ] else
             const SizedBox(height: 44),
         ],
+      ),
+    );
+  }
+
+  /// 이미 오늘을 보고 있으면 흐리게 두고 눌리지 않게 한다.
+  Widget _buildTodayButton() {
+    final today = _dateOnly(DateTime.now());
+    final atToday =
+        !_pickingDate &&
+        _selected == today &&
+        _month == DateTime(today.year, today.month);
+    return Padding(
+      padding: const EdgeInsets.only(right: 4),
+      child: CupertinoButton(
+        padding: const EdgeInsets.symmetric(horizontal: 12),
+        minimumSize: const Size(0, 30),
+        color: WolodyColors.surface,
+        disabledColor: WolodyColors.surface,
+        borderRadius: BorderRadius.circular(15),
+        onPressed: atToday ? null : _goToToday,
+        child: Text(
+          '오늘',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: atToday
+                ? WolodyColors.textSecondary
+                : WolodyColors.brandBlue,
+          ),
+        ),
       ),
     );
   }

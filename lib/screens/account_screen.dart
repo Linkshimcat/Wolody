@@ -11,7 +11,6 @@ import '../services/trash_storage.dart';
 import '../theme.dart';
 import '../widgets/profile_avatar.dart';
 import '../widgets/wolody_top_bar.dart';
-import 'login_screen.dart';
 import 'profile_edit_screen.dart';
 
 /// 설정 → 계정 정보. 로그인 전에는 프로필과 이 기기에 저장된 데이터를 관리한다.
@@ -40,15 +39,6 @@ class _AccountScreenState extends State<AccountScreen> {
     ).push(CupertinoPageRoute<void>(builder: (_) => const ProfileEditScreen()));
   }
 
-  void _openLogin() {
-    HapticFeedback.lightImpact();
-    // 로그인 화면은 전체 화면이라 탭 바 없이 루트에서 띄운다.
-    Navigator.of(
-      context,
-      rootNavigator: true,
-    ).push(CupertinoPageRoute<void>(builder: (_) => const LoginScreen()));
-  }
-
   Future<void> _confirmSignOut() async {
     HapticFeedback.lightImpact();
     final confirmed = await showCupertinoDialog<bool>(
@@ -75,48 +65,19 @@ class _AccountScreenState extends State<AccountScreen> {
     if (confirmed != true) return;
     HapticFeedback.mediumImpact();
     await AuthService.signOut();
+    // 홈 배너에서 루트로 띄운 설정 화면이라면 로그인 화면 위에 남지 않게 걷어낸다.
+    if (mounted) {
+      Navigator.of(
+        context,
+        rootNavigator: true,
+      ).popUntil((route) => route.isFirst);
+    }
   }
 
-  /// 로그인 전에는 로그인 버튼을, 로그인 후에는 계정과 로그아웃을 보여준다.
+  /// 로그인한 계정과 로그아웃을 보여준다.
   Widget _buildLoginSection() {
-    final signedIn = AuthService.currentUser != null;
-    if (!signedIn) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _sectionTitle('로그인'),
-          _row(
-            onTap: _openLogin,
-            child: const Row(
-              children: [
-                Icon(
-                  CupertinoIcons.person_crop_circle_badge_plus,
-                  size: 22,
-                  color: WolodyColors.brandBlue,
-                ),
-                SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    '구글·카카오로 로그인',
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                  ),
-                ),
-                Icon(CupertinoIcons.chevron_right, size: 20),
-              ],
-            ),
-          ),
-          const SizedBox(height: 10),
-          const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 4),
-            child: Text(
-              '로그인하면 기록이 계정에 백업되고, 다른 기기에서도 볼 수 있어요.',
-              style: TextStyle(fontSize: 12, color: WolodyColors.textSecondary),
-            ),
-          ),
-          const SizedBox(height: 34),
-        ],
-      );
-    }
+    // 앱은 로그인해야 쓸 수 있어서, 로그아웃되는 순간에만 비어 있다.
+    if (AuthService.currentUser == null) return const SizedBox.shrink();
 
     final provider = AuthService.currentProvider;
     return Column(
@@ -348,7 +309,7 @@ class _AccountScreenState extends State<AccountScreen> {
                       child: Text(
                         AuthService.currentUser == null
                             ? '지금은 모든 기록이 이 기기에만 저장돼요.'
-                            : '기록과 사진이 계정에 백업되고 있어요.',
+                            : '기록·사진·프로필이 계정에 저장돼요. 다른 기기에서도 그대로 볼 수 있어요.',
                         style: const TextStyle(
                           fontSize: 12,
                           color: WolodyColors.textSecondary,

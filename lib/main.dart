@@ -1,9 +1,12 @@
+import 'dart:async';
+
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:intl/date_symbol_data_local.dart';
 
+import 'models/reminder_settings.dart';
 import 'theme.dart';
 import 'screens/root_screen.dart';
 import 'screens/splash_screen.dart';
@@ -32,7 +35,7 @@ Future<void> _initializeApp() async {
   await initializeDateFormatting('ko_KR');
   await PhotoStorage.init();
   try {
-    // 로그인·백업용. 실패해도 기기 저장만으로 앱은 그대로 쓸 수 있다.
+    // 로그인과 계정 저장소. 세션은 기기에 남아 있어서 오프라인이어도 초기화된다.
     await SupabaseConfig.initialize();
     await AuthService.init();
   } catch (e) {
@@ -40,7 +43,13 @@ Future<void> _initializeApp() async {
   }
   // 프로필 사진은 문서 폴더에 있으므로 PhotoStorage 다음에 읽는다.
   await ProfileStorage.load();
+  // 다른 기기에서 바꾼 프로필이 있을 수 있으니 계정 사본을 뒤에서 가져온다.
+  if (AuthService.currentUser != null) {
+    unawaited(ProfileStorage.pullFromCloud());
+  }
   await NotificationService.instance.init();
+  // 홈의 알림 배너가 처음부터 알림 설정 여부를 알고 그리도록 미리 읽어 둔다.
+  await ReminderSettings.load();
   // 앱을 껐다 켜는 사이 기록이 바뀌었을 수 있으니 위젯을 한 번 맞춰둔다.
   await WidgetService.refresh();
 }

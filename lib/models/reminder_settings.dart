@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 enum ReminderMode { once, repeat }
@@ -40,6 +41,11 @@ class ReminderSettings {
     weekdays: {1, 2, 3, 4, 5, 6, 7},
   );
 
+  /// 마지막으로 읽거나 저장한 설정. 홈의 "기록 알림을 설정해볼까요?" 배너가
+  /// 구독해서, 설정에서 알림을 켜고 돌아오면 배너가 바로 사라진다.
+  /// 한 번도 [load]하기 전에는 null이다.
+  static final current = ValueNotifier<ReminderSettings?>(null);
+
   bool get endAfterStart =>
       endHour * 60 + endMinute > startHour * 60 + startMinute;
 
@@ -71,12 +77,11 @@ class ReminderSettings {
 
   static Future<ReminderSettings> load() async {
     final prefs = await SharedPreferences.getInstance();
-    return ReminderSettings(
+    return current.value = ReminderSettings(
       enabled: prefs.getBool('reminder_enabled') ?? defaults.enabled,
-      mode:
-          prefs.getString('reminder_mode') == 'repeat'
-              ? ReminderMode.repeat
-              : ReminderMode.once,
+      mode: prefs.getString('reminder_mode') == 'repeat'
+          ? ReminderMode.repeat
+          : ReminderMode.once,
       hour: prefs.getInt('reminder_hour') ?? defaults.hour,
       minute: prefs.getInt('reminder_minute') ?? defaults.minute,
       startHour: prefs.getInt('reminder_start_hour') ?? defaults.startHour,
@@ -87,10 +92,7 @@ class ReminderSettings {
       intervalMinutes:
           prefs.getInt('reminder_interval') ?? defaults.intervalMinutes,
       weekdays:
-          prefs
-              .getStringList('reminder_weekdays')
-              ?.map(int.parse)
-              .toSet() ??
+          prefs.getStringList('reminder_weekdays')?.map(int.parse).toSet() ??
           defaults.weekdays,
     );
   }
@@ -110,5 +112,6 @@ class ReminderSettings {
       'reminder_weekdays',
       weekdays.map((d) => d.toString()).toList(),
     );
+    current.value = this;
   }
 }

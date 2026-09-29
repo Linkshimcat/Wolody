@@ -4,12 +4,14 @@ import 'package:flutter/services.dart';
 import 'dart:ui' show ImageFilter;
 
 import '../models/mood_entry.dart';
+import '../models/reminder_settings.dart';
 import '../services/mood_editor.dart';
 import '../services/mood_storage.dart';
 import '../theme.dart';
 import '../widgets/mood_card.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/primary_action_button.dart';
+import 'reminder_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -22,12 +24,16 @@ class _HomeScreenState extends State<HomeScreen> {
   final _storage = MoodStorage();
   List<MoodEntry> _entries = [];
   bool _loading = true;
+  bool _bannerDismissed = false;
 
   @override
   void initState() {
     super.initState();
     MoodStorage.cache.addListener(_onCacheChanged);
     MoodStorage.syncing.addListener(_onSyncingChanged);
+    ReminderSettings.current.addListener(_onReminderChanged);
+    // 앱 시작 때 읽어 두지만, 미리보기처럼 초기화를 건너뛴 경우를 대비한다.
+    if (ReminderSettings.current.value == null) ReminderSettings.load();
     _load();
   }
 
@@ -35,7 +41,12 @@ class _HomeScreenState extends State<HomeScreen> {
   void dispose() {
     MoodStorage.cache.removeListener(_onCacheChanged);
     MoodStorage.syncing.removeListener(_onSyncingChanged);
+    ReminderSettings.current.removeListener(_onReminderChanged);
     super.dispose();
+  }
+
+  void _onReminderChanged() {
+    if (mounted) setState(() {});
   }
 
   void _onCacheChanged() {
@@ -114,7 +125,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 13,
-                    color: CupertinoColors.secondaryLabel,
+                    color: Color.fromARGB(255, 255, 255, 255),
                   ),
                 ),
               ),
@@ -163,6 +174,14 @@ class _HomeScreenState extends State<HomeScreen> {
     if (await editMoodEntry(context, entry)) await _load();
   }
 
+  void _openReminderSettings() {
+    HapticFeedback.lightImpact();
+    // 알림을 켜고 돌아오면 ReminderSettings.current가 바뀌면서 배너가 사라진다.
+    Navigator.of(
+      context,
+    ).push(CupertinoPageRoute<void>(builder: (_) => const ReminderScreen()));
+  }
+
   Future<void> _deleteMood(MoodEntry entry) async {
     HapticFeedback.mediumImpact();
     setState(() => _entries.removeWhere((e) => e.id == entry.id));
@@ -180,6 +199,10 @@ class _HomeScreenState extends State<HomeScreen> {
           entry.date.month == now.month &&
           entry.date.day == now.day,
     );
+    // 오늘 기록했으면 완료 배너를, 아직이면 알림을 켜지 않은 사람에게만 알림 배너를 띄운다.
+    final reminderOff = ReminderSettings.current.value?.enabled == false;
+    final showBanner = !_bannerDismissed && (recordedToday || reminderOff);
+    final contentTop = showBanner ? 30.0 : 18.0;
     return CupertinoPageScaffold(
       backgroundColor: kAppBackground,
       child: CustomScrollView(
@@ -197,27 +220,37 @@ class _HomeScreenState extends State<HomeScreen> {
             refreshTriggerPullDistance: 140 + topInset,
             builder: _buildRefreshIndicator,
           ),
-          SliverToBoxAdapter(
-            child: Padding(
-              padding: EdgeInsets.fromLTRB(24, recordedToday ? 18 : 35, 24, 0),
-              child: _HomeBanner(completed: recordedToday),
+          if (showBanner)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: EdgeInsets.fromLTRB(
+                  24,
+                  recordedToday ? 18 : 35,
+                  24,
+                  0,
+                ),
+                child: _HomeBanner(
+                  completed: recordedToday,
+                  onTap: recordedToday ? null : _openReminderSettings,
+                  onClose: () => setState(() => _bannerDismissed = true),
+                ),
+              ),
             ),
-          ),
           // 동기화는 알림 없이 뒤에서 조용히 돈다. 다만 새 기기에서 처음 로그인해
           // 아직 받아온 기록이 없을 때는 빈 화면 대신 카드 모양 스켈레톤을 보여준다.
           if (_loading || (_entries.isEmpty && MoodStorage.syncing.value))
-            const SliverPadding(
-              padding: EdgeInsets.fromLTRB(24, 30, 24, kBottomNavSpace),
-              sliver: SliverToBoxAdapter(child: MoodListSkeleton()),
+            SliverPadding(
+              padding: EdgeInsets.fromLTRB(24, contentTop, 24, kBottomNavSpace),
+              sliver: const SliverToBoxAdapter(child: MoodListSkeleton()),
             )
           else if (_entries.isEmpty)
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(24, 30, 24, kBottomNavSpace),
+              padding: EdgeInsets.fromLTRB(24, contentTop, 24, kBottomNavSpace),
               sliver: SliverToBoxAdapter(child: _EmptyState(onAdd: _addMood)),
             )
           else
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(24, 30, 24, kBottomNavSpace),
+              padding: EdgeInsets.fromLTRB(24, contentTop, 24, kBottomNavSpace),
               sliver: SliverList.builder(
                 itemCount: _entries.length,
                 itemBuilder: (context, index) {
@@ -395,23 +428,22 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
-class _HomeBanner extends StatefulWidget {
+class _HomeBanner extends StatelessWidget {
   final bool completed;
 
-  const _HomeBanner({required this.completed});
+  /// 배너를 눌렀을 때. 알림 배너는 알림 설정 화면으로 보낸다.
+  final VoidCallback? onTap;
+  final VoidCallback onClose;
 
-  @override
-  State<_HomeBanner> createState() => _HomeBannerState();
-}
-
-class _HomeBannerState extends State<_HomeBanner> {
-  bool _dismissed = false;
+  const _HomeBanner({
+    required this.completed,
+    this.onTap,
+    required this.onClose,
+  });
 
   @override
   Widget build(BuildContext context) {
-    final completed = widget.completed;
-    if (_dismissed) return const SizedBox.shrink();
-    return Container(
+    final banner = Container(
       height: completed ? 250 : 100,
       clipBehavior: Clip.hardEdge,
       decoration: BoxDecoration(
@@ -471,23 +503,35 @@ class _HomeBannerState extends State<_HomeBanner> {
               fit: BoxFit.contain,
             ),
           ),
+          // 배너 전체가 눌리므로, 닫기를 살짝 빗나가도 설정으로 넘어가지 않게
+          // 아이콘 둘레까지 닫기 영역으로 잡는다.
           Positioned(
-            top: 11,
-            right: 10,
+            top: 1,
+            right: 0,
             child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
               onTap: () {
                 HapticFeedback.lightImpact();
-                setState(() => _dismissed = true);
+                onClose();
               },
-              child: const Icon(
-                CupertinoIcons.xmark_circle_fill,
-                size: 20,
-                color: Color(0xFF747B86),
+              child: const Padding(
+                padding: EdgeInsets.all(10),
+                child: Icon(
+                  CupertinoIcons.xmark_circle_fill,
+                  size: 20,
+                  color: Color(0xFF747B86),
+                ),
               ),
             ),
           ),
         ],
       ),
+    );
+    if (onTap == null) return banner;
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: banner,
     );
   }
 }

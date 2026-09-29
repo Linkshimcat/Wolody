@@ -258,11 +258,13 @@ private final class GlassSwitchViewFactory: NSObject, FlutterPlatformViewFactory
 }
 
 private final class GlassSwitchView: NSObject, FlutterPlatformView {
+  private let container: UIView
   private let control: UISwitch
   private let channel: FlutterMethodChannel
 
   init(frame: CGRect, messenger: FlutterBinaryMessenger, args: Any?) {
     let params = args as? [String: Any] ?? [:]
+    container = UIView(frame: frame)
     control = UISwitch()
     control.isOn = params["value"] as? Bool ?? false
     control.onTintColor = UIColor(
@@ -276,6 +278,16 @@ private final class GlassSwitchView: NSObject, FlutterPlatformView {
       binaryMessenger: messenger
     )
     super.init()
+
+    // UISwitch는 받은 프레임을 무시하고 고유 크기로 왼쪽 위에 붙는다. iOS 26의
+    // 스위치는 예전(51pt)보다 넓어서 그대로 두면 오른쪽으로 삐져나와 카드 여백을
+    // 먹는다. 컨테이너 오른쪽 끝·세로 가운데에 맞춰 Flutter 레이아웃 안에 둔다.
+    control.translatesAutoresizingMaskIntoConstraints = false
+    container.addSubview(control)
+    NSLayoutConstraint.activate([
+      control.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+      control.centerYAnchor.constraint(equalTo: container.centerYAnchor),
+    ])
 
     // 사용자가 토글하면 Dart 상태를 바꾸고, 반영된 값은 setValue로 내려온다.
     control.addTarget(self, action: #selector(controlChanged), for: .valueChanged)
@@ -295,7 +307,7 @@ private final class GlassSwitchView: NSObject, FlutterPlatformView {
     channel.invokeMethod("onChanged", arguments: ["value": control.isOn])
   }
 
-  func view() -> UIView { control }
+  func view() -> UIView { container }
 }
 
 private final class GlassContainer: UIView {

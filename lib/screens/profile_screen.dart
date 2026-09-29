@@ -6,6 +6,7 @@ import '../services/mood_editor.dart';
 import '../services/mood_storage.dart';
 import '../services/profile_storage.dart';
 import '../theme.dart';
+import '../widgets/cover_flow_item.dart';
 import '../widgets/memory_card.dart';
 import '../widgets/profile_avatar.dart';
 import 'profile_edit_screen.dart';
@@ -210,20 +211,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: _openRecap,
-                    child: const Padding(
-                      padding: EdgeInsets.symmetric(vertical: 6),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          Text(
-                            'Wolody의 리캡',
-                            style: TextStyle(
-                              fontFamily: 'BM Jua',
-                              fontSize: 22,
+                          Flexible(
+                            child: ValueListenableBuilder<UserProfile>(
+                              valueListenable: ProfileStorage.profile,
+                              builder: (context, profile, _) => Text(
+                                '${profile.nickname}의 리캡',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontFamily: 'BM Jua',
+                                  fontSize: 22,
+                                ),
+                              ),
                             ),
                           ),
-                          SizedBox(width: 6),
-                          Icon(
+                          const SizedBox(width: 6),
+                          const Icon(
                             CupertinoIcons.chevron_right,
                             size: 20,
                             color: CupertinoColors.white,
@@ -236,14 +244,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
             if (memories.isEmpty)
-              const SliverToBoxAdapter(
+              SliverToBoxAdapter(
                 child: SizedBox(
                   height: 240,
                   child: Center(
                     child: Text(
-                      '아직 Wolody의 리캡이 없어요.',
+                      '아직 ${ProfileStorage.profile.value.nickname}의 리캡이 없어요.',
                       textAlign: TextAlign.center,
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: WolodyColors.textSecondary,
                         fontSize: 14,
                       ),
@@ -347,31 +355,9 @@ class _MemoryCarouselState extends State<_MemoryCarousel> {
         controller: _controller,
         itemCount: widget.memories.length,
         onPageChanged: (_) => HapticFeedback.selectionClick(),
-        itemBuilder: (context, index) => AnimatedBuilder(
-          animation: _controller,
-          builder: (context, child) {
-            final page =
-                _controller.hasClients && _controller.position.haveDimensions
-                ? _controller.page ?? 0
-                : 0.0;
-            // 가운데에서 멀어질수록(-1~1) 작아지고 바깥쪽으로 기운다.
-            final offset = (index - page).clamp(-1.0, 1.0);
-            return Transform(
-              alignment: offset > 0
-                  ? Alignment.centerLeft
-                  : Alignment.centerRight,
-              transform: Matrix4.identity()
-                ..setEntry(3, 2, 0.0015)
-                ..rotateY(-offset * 0.45)
-                ..scaleByDouble(
-                  1 - offset.abs() * 0.15,
-                  1 - offset.abs() * 0.15,
-                  1,
-                  1,
-                ),
-              child: child,
-            );
-          },
+        itemBuilder: (context, index) => CoverFlowItem(
+          controller: _controller,
+          index: index,
           child: Center(
             child: MemoryCard(
               entry: widget.memories[index],
