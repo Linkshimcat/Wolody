@@ -2,15 +2,15 @@ import 'dart:io';
 import 'dart:ui' show ImageFilter;
 
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../services/haptics.dart';
 import '../models/mood.dart';
 import '../models/mood_entry.dart';
+import '../models/mood_picker_result.dart';
 import '../services/photo_storage.dart';
 import '../theme.dart';
 import '../widgets/cover_flow_item.dart';
-import '../widgets/mood_picker_sheet.dart';
 import '../widgets/glass_back_button.dart';
 import '../widgets/primary_action_button.dart';
 import '../widgets/wooldy_mood_portrait.dart';
@@ -61,7 +61,7 @@ class _MoodEntryFlowScreenState extends State<MoodEntryFlowScreen> {
   }
 
   void _toggleMood(Mood mood) {
-    HapticFeedback.selectionClick();
+    Haptics.selection();
     setState(() {
       if (!_selected.add(mood.emoji)) _selected.remove(mood.emoji);
       _focusedIndex = Mood.all.indexOf(mood);
@@ -78,7 +78,7 @@ class _MoodEntryFlowScreenState extends State<MoodEntryFlowScreen> {
   }
 
   void _showImageOptions() {
-    HapticFeedback.lightImpact();
+    Haptics.light();
     showCupertinoModalPopup<void>(
       context: context,
       builder: (sheetContext) => CupertinoActionSheet(
@@ -110,11 +110,11 @@ class _MoodEntryFlowScreenState extends State<MoodEntryFlowScreen> {
   void _continue() {
     if (_step == 0) {
       if (_selected.isEmpty) return;
-      HapticFeedback.selectionClick();
+      Haptics.selection();
       setState(() => _step = 1);
       return;
     }
-    HapticFeedback.mediumImpact();
+    Haptics.medium();
     Navigator.pop(
       context,
       MoodPickerResult(
@@ -131,14 +131,14 @@ class _MoodEntryFlowScreenState extends State<MoodEntryFlowScreen> {
   Widget build(BuildContext context) {
     final bottom = MediaQuery.paddingOf(context).bottom;
     return CupertinoPageScaffold(
-      backgroundColor: WolodyColors.background,
+      backgroundColor: WolodyColors.of(context).background,
       child: SafeArea(
         bottom: false,
         child: Column(
           children: [
             _TopBar(
               onBack: () {
-                HapticFeedback.lightImpact();
+                Haptics.light();
                 if (_step == 1) {
                   setState(() => _step = 0);
                 } else {
@@ -178,9 +178,12 @@ class _MoodEntryFlowScreenState extends State<MoodEntryFlowScreen> {
           ),
         ),
         const SizedBox(height: 4),
-        const Text(
+        Text(
           '여러 개 선택할 수 있어요',
-          style: TextStyle(fontSize: 14, color: WolodyColors.textSecondary),
+          style: TextStyle(
+            fontSize: 14,
+            color: WolodyColors.of(context).textSecondary,
+          ),
         ),
         const SizedBox(height: 18),
         Expanded(
@@ -206,7 +209,9 @@ class _MoodEntryFlowScreenState extends State<MoodEntryFlowScreen> {
                               alpha: .27,
                             ),
                             WolodyColors.brandBlue.withValues(alpha: .17),
-                            const Color(0x000D1118),
+                            WolodyColors.of(
+                              context,
+                            ).background.withValues(alpha: 0),
                           ],
                           stops: const [0, .36, .72, 1],
                         ),
@@ -221,7 +226,7 @@ class _MoodEntryFlowScreenState extends State<MoodEntryFlowScreen> {
                   controller: _pageController,
                   itemCount: Mood.all.length,
                   onPageChanged: (index) {
-                    HapticFeedback.selectionClick();
+                    Haptics.selection();
                     setState(() => _focusedIndex = index);
                   },
                   itemBuilder: (context, index) {
@@ -238,8 +243,9 @@ class _MoodEntryFlowScreenState extends State<MoodEntryFlowScreen> {
                             width: 198,
                             height: 360,
                             decoration: BoxDecoration(
-                              color: WolodyColors.selectorSurface,
+                              color: WolodyColors.of(context).selectorSurface,
                               borderRadius: BorderRadius.circular(28),
+                              boxShadow: WolodyColors.of(context).cardShadow,
                               border: Border.all(
                                 color: selected
                                     ? mood.color
@@ -263,9 +269,15 @@ class _MoodEntryFlowScreenState extends State<MoodEntryFlowScreen> {
                                     mood.label,
                                     style: TextStyle(
                                       fontFamily: 'BM Jua',
-                                      color: selected
+                                      // 파스텔 감정 색은 흰 카드 위 글자로는 흐려서
+                                      // 라이트에서는 테두리·체크로만 강조한다.
+                                      color:
+                                          selected &&
+                                              !WolodyColors.of(context).isLight
                                           ? mood.color
-                                          : CupertinoColors.white,
+                                          : WolodyColors.of(
+                                              context,
+                                            ).textPrimary,
                                       fontSize: 18,
                                       fontWeight: FontWeight.w700,
                                     ),
@@ -309,17 +321,17 @@ class _MoodEntryFlowScreenState extends State<MoodEntryFlowScreen> {
     return ListView(
       padding: const EdgeInsets.fromLTRB(24, 30, 24, 12),
       children: [
-        const Row(
+        Row(
           children: [
             WolodyIcon(
               'iconsax-note.svg',
               size: 22,
-              color: CupertinoColors.white,
+              color: WolodyColors.of(context).textPrimary,
             ),
-            SizedBox(width: 10),
-            Text(
+            const SizedBox(width: 10),
+            const Text(
               '오늘의 하루를 기록 해 보세요',
-              style: TextStyle(fontSize: 21, fontWeight: FontWeight.w700),
+              style: TextStyle(fontFamily: 'BM Jua', fontSize: 21),
             ),
           ],
         ),
@@ -330,32 +342,33 @@ class _MoodEntryFlowScreenState extends State<MoodEntryFlowScreen> {
           maxLines: 9,
           placeholder: '오늘 있었던 일을 적어보세요.. (선택)',
           padding: const EdgeInsets.all(20),
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 14,
             height: 1.4,
-            color: WolodyColors.textPrimary,
+            color: WolodyColors.of(context).textPrimary,
           ),
-          placeholderStyle: const TextStyle(
+          placeholderStyle: TextStyle(
             fontSize: 13,
-            color: WolodyColors.textSecondary,
+            color: WolodyColors.of(context).textSecondary,
           ),
           decoration: BoxDecoration(
-            color: WolodyColors.surface,
+            color: WolodyColors.of(context).surface,
             borderRadius: BorderRadius.circular(24),
+            boxShadow: WolodyColors.of(context).cardShadow,
           ),
         ),
         const SizedBox(height: 60),
-        const Row(
+        Row(
           children: [
             WolodyIcon(
               'iconsax-camera.svg',
               size: 22,
-              color: CupertinoColors.white,
+              color: WolodyColors.of(context).textPrimary,
             ),
-            SizedBox(width: 10),
-            Text(
+            const SizedBox(width: 10),
+            const Text(
               '찍은 사진이 있나요?',
-              style: TextStyle(fontSize: 21, fontWeight: FontWeight.w700),
+              style: TextStyle(fontFamily: 'BM Jua', fontSize: 21),
             ),
           ],
         ),
@@ -367,18 +380,19 @@ class _MoodEntryFlowScreenState extends State<MoodEntryFlowScreen> {
               height: 60,
               padding: const EdgeInsets.symmetric(horizontal: 22),
               decoration: BoxDecoration(
-                color: WolodyColors.surface,
+                color: WolodyColors.of(context).surface,
                 borderRadius: BorderRadius.circular(18),
+                boxShadow: WolodyColors.of(context).cardShadow,
               ),
-              child: const Row(
+              child: Row(
                 children: [
                   WolodyIcon(
                     'iconsax-camera.svg',
                     size: 19,
-                    color: CupertinoColors.white,
+                    color: WolodyColors.of(context).textPrimary,
                   ),
-                  SizedBox(width: 12),
-                  Text(
+                  const SizedBox(width: 12),
+                  const Text(
                     '사진 추가',
                     style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                   ),
@@ -404,7 +418,7 @@ class _MoodEntryFlowScreenState extends State<MoodEntryFlowScreen> {
                 child: CupertinoButton(
                   padding: EdgeInsets.zero,
                   onPressed: () {
-                    HapticFeedback.lightImpact();
+                    Haptics.light();
                     setState(() => _imagePath = null);
                   },
                   child: const Icon(
@@ -433,10 +447,7 @@ class _TopBar extends StatelessWidget {
         children: [
           GlassBackButton(onPressed: onBack),
           const SizedBox(width: 10),
-          const Text(
-            '감정 기록',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
-          ),
+          const Text('감정 기록', style: kPageTitleStyle),
         ],
       ),
     );

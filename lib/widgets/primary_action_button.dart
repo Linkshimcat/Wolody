@@ -46,6 +46,7 @@ class _PrimaryActionButtonState extends State<PrimaryActionButton>
   @override
   Widget build(BuildContext context) {
     final enabled = widget.onPressed != null;
+    final background = WolodyColors.of(context).ctaBackground;
     return AnimatedBuilder(
       animation: _shake,
       builder: (context, child) {
@@ -63,8 +64,8 @@ class _PrimaryActionButtonState extends State<PrimaryActionButton>
           child: CupertinoButton(
             padding: const EdgeInsets.symmetric(horizontal: 16),
             borderRadius: BorderRadius.circular(17),
-            color: WolodyColors.actionLavender,
-            disabledColor: WolodyColors.actionLavender.withValues(alpha: 0.45),
+            color: background,
+            disabledColor: background.withValues(alpha: 0.45),
             onPressed: widget.onPressed,
             child: Text(
               widget.label,

@@ -1,8 +1,8 @@
 import 'dart:async';
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/services.dart';
 import 'dart:ui' show ImageFilter;
 
+import '../services/haptics.dart';
 import '../models/mood_entry.dart';
 import '../models/reminder_settings.dart';
 import '../services/mood_editor.dart';
@@ -70,7 +70,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _refresh() async {
     // 당겨서 새로고침이 걸리는 순간을 손끝으로도 알려준다.
-    HapticFeedback.mediumImpact();
+    Haptics.medium();
     await Future.wait([
       _storage.refresh(),
       Future<void>.delayed(const Duration(milliseconds: 1200)),
@@ -120,12 +120,12 @@ class _HomeScreenState extends State<HomeScreen> {
                 top: 56,
                 left: 0,
                 right: 0,
-                child: const Text(
+                child: Text(
                   '오늘의 기분 리프레시 중..',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 13,
-                    color: Color.fromARGB(255, 255, 255, 255),
+                    color: WolodyColors.of(context).textPrimary,
                   ),
                 ),
               ),
@@ -165,17 +165,17 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _addMood() async {
-    HapticFeedback.lightImpact();
+    Haptics.light();
     if (await createMoodEntry(context)) await _load();
   }
 
   Future<void> _editMood(MoodEntry entry) async {
-    HapticFeedback.lightImpact();
+    Haptics.light();
     if (await editMoodEntry(context, entry)) await _load();
   }
 
   void _openReminderSettings() {
-    HapticFeedback.lightImpact();
+    Haptics.light();
     // 알림을 켜고 돌아오면 ReminderSettings.current가 바뀌면서 배너가 사라진다.
     Navigator.of(
       context,
@@ -183,7 +183,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _deleteMood(MoodEntry entry) async {
-    HapticFeedback.mediumImpact();
+    Haptics.medium();
     setState(() => _entries.removeWhere((e) => e.id == entry.id));
     // 바로 지우지 않고 휴지통(설정 → 삭제된 기록)으로 옮긴다.
     await deleteMoodEntry(entry);
@@ -204,7 +204,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final showBanner = !_bannerDismissed && (recordedToday || reminderOff);
     final contentTop = showBanner ? 30.0 : 18.0;
     return CupertinoPageScaffold(
-      backgroundColor: kAppBackground,
+      backgroundColor: WolodyColors.of(context).background,
       child: CustomScrollView(
         physics: const BouncingScrollPhysics(
           parent: AlwaysScrollableScrollPhysics(),
@@ -212,7 +212,10 @@ class _HomeScreenState extends State<HomeScreen> {
         slivers: [
           SliverPersistentHeader(
             pinned: true,
-            delegate: _HomeHeaderDelegate(topInset: topInset),
+            delegate: _HomeHeaderDelegate(
+              topInset: topInset,
+              colors: WolodyColors.of(context),
+            ),
           ),
           CupertinoSliverRefreshControl(
             onRefresh: _refresh,
@@ -329,7 +332,11 @@ class _MoodCardEntranceState extends State<_MoodCardEntrance> {
 class _HomeHeaderDelegate extends SliverPersistentHeaderDelegate {
   final double topInset;
 
-  const _HomeHeaderDelegate({required this.topInset});
+  /// 헤더는 shouldRebuild가 참일 때만 다시 그려져서, 화면 모드가 바뀐 걸
+  /// 알 수 있도록 팔레트를 밖에서 받아 비교한다.
+  final WolodyPalette colors;
+
+  const _HomeHeaderDelegate({required this.topInset, required this.colors});
 
   @override
   double get minExtent => topInset + 48;
@@ -347,16 +354,17 @@ class _HomeHeaderDelegate extends SliverPersistentHeaderDelegate {
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 65, sigmaY: 65),
         child: Container(
-          color: const Color(0x800D1118),
+          color: colors.headerScrim,
           padding: EdgeInsets.fromLTRB(24, topInset + 20, 24, 0),
           alignment: Alignment.topLeft,
-          child: const Text(
+          child: Text(
             'Wolody',
             style: TextStyle(
               fontFamily: 'BM Jua',
               fontSize: 23,
               fontWeight: FontWeight.w700,
-              color: CupertinoColors.white,
+              // 다크는 흰 글씨, 라이트는 흰 배경에서 또렷한 브랜드 블루.
+              color: colors.isLight ? colors.logo : colors.textPrimary,
             ),
           ),
         ),
@@ -366,7 +374,7 @@ class _HomeHeaderDelegate extends SliverPersistentHeaderDelegate {
 
   @override
   bool shouldRebuild(covariant _HomeHeaderDelegate oldDelegate) =>
-      topInset != oldDelegate.topInset;
+      topInset != oldDelegate.topInset || colors != oldDelegate.colors;
 }
 
 class _EmptyState extends StatelessWidget {
@@ -376,15 +384,17 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = WolodyColors.of(context);
     return Container(
       height: 447,
       decoration: BoxDecoration(
-        color: WolodyColors.surface,
+        color: colors.surface,
         borderRadius: BorderRadius.circular(24),
+        boxShadow: colors.cardShadow,
       ),
       child: Stack(
         children: [
-          const Positioned(
+          Positioned(
             top: 24,
             left: 18,
             right: 18,
@@ -394,7 +404,7 @@ class _EmptyState extends StatelessWidget {
                 fontSize: 17,
                 fontWeight: FontWeight.w700,
                 height: 1.35,
-                color: CupertinoColors.white,
+                color: colors.textPrimary,
               ),
             ),
           ),
@@ -443,12 +453,14 @@ class _HomeBanner extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = WolodyColors.of(context);
     final banner = Container(
       height: completed ? 250 : 100,
       clipBehavior: Clip.hardEdge,
       decoration: BoxDecoration(
-        color: WolodyColors.surface,
+        color: colors.surface,
         borderRadius: BorderRadius.circular(24),
+        boxShadow: colors.cardShadow,
       ),
       child: Stack(
         children: [
@@ -483,10 +495,7 @@ class _HomeBanner extends StatelessWidget {
                 const SizedBox(height: 3),
                 Text(
                   completed ? '연속 1일차에 도전 중입니다' : '울디가 매일 마음 기록을 챙겨줄게요.',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: WolodyColors.textSecondary,
-                  ),
+                  style: TextStyle(fontSize: 11, color: colors.textSecondary),
                 ),
               ],
             ),
@@ -511,15 +520,15 @@ class _HomeBanner extends StatelessWidget {
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: () {
-                HapticFeedback.lightImpact();
+                Haptics.light();
                 onClose();
               },
-              child: const Padding(
-                padding: EdgeInsets.all(10),
+              child: Padding(
+                padding: const EdgeInsets.all(10),
                 child: Icon(
                   CupertinoIcons.xmark_circle_fill,
                   size: 20,
-                  color: Color(0xFF747B86),
+                  color: colors.closeIcon,
                 ),
               ),
             ),

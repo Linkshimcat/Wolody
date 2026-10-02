@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/services.dart';
 
+import '../services/haptics.dart';
+import '../theme.dart';
 import 'glass_back_button.dart';
 
 /// 보조 화면 상단: 유리 뒤로 가기 버튼 + 제목 (+ 오른쪽 동작).
@@ -18,7 +19,7 @@ class WolodyTopBar extends StatelessWidget {
         children: [
           GlassBackButton(
             onPressed: () {
-              HapticFeedback.lightImpact();
+              Haptics.light();
               Navigator.maybePop(context);
             },
           ),
@@ -28,7 +29,7 @@ class WolodyTopBar extends StatelessWidget {
               title,
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
-              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+              style: kPageTitleStyle,
             ),
           ),
           ?trailing,

@@ -1,7 +1,8 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
+import '../services/haptics.dart';
+import '../models/mood.dart';
 import '../models/mood_entry.dart';
 import '../services/mood_editor.dart';
 import '../services/mood_storage.dart';
@@ -9,6 +10,7 @@ import '../theme.dart';
 import '../widgets/mood_card.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/wolody_icon.dart';
+import '../widgets/wooldy_mood_portrait.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -74,19 +76,19 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   Future<void> _edit(MoodEntry entry) async {
-    HapticFeedback.lightImpact();
+    Haptics.light();
     if (await editMoodEntry(context, entry)) await _load();
   }
 
   Future<void> _delete(MoodEntry entry) async {
-    HapticFeedback.mediumImpact();
+    Haptics.medium();
     // 바로 지우지 않고 휴지통(설정 → 삭제된 기록)으로 옮긴다.
     await deleteMoodEntry(entry);
     await _load();
   }
 
   void _togglePicker() {
-    HapticFeedback.lightImpact();
+    Haptics.light();
     setState(() => _pickingDate = !_pickingDate);
   }
 
@@ -108,7 +110,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   /// 오늘이 있는 달로 돌아가 오늘을 고른다. 휠이 열려 있으면 달력으로 접는다.
   void _goToToday() {
-    HapticFeedback.lightImpact();
+    Haptics.light();
     final today = _dateOnly(DateTime.now());
     setState(() {
       _selected = today;
@@ -118,26 +120,27 @@ class _CalendarScreenState extends State<CalendarScreen> {
   }
 
   void _changeMonth(int delta) {
-    HapticFeedback.lightImpact();
+    Haptics.light();
     setState(() => _month = DateTime(_month.year, _month.month + delta));
   }
 
   @override
   Widget build(BuildContext context) {
     final selectedEntries = _byDay[_selected] ?? const <MoodEntry>[];
+    final colors = WolodyColors.of(context);
     return CupertinoPageScaffold(
-      backgroundColor: kAppBackground,
-      navigationBar: const CupertinoNavigationBar(
+      backgroundColor: colors.background,
+      navigationBar: CupertinoNavigationBar(
         backgroundColor: kNavBarBackground,
         middle: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text('Wolody 달력', style: TextStyle(fontFamily: 'BM Jua')),
-            SizedBox(width: 6),
+            const Text('Wolody 달력', style: TextStyle(fontFamily: 'BM Jua')),
+            const SizedBox(width: 6),
             WolodyIcon(
               'iconsax-calendar.svg',
               size: 18,
-              color: CupertinoColors.white,
+              color: colors.textPrimary,
             ),
           ],
         ),
@@ -180,8 +183,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
                   child: Center(
                     child: Text(
                       '이 날은 기록이 없어요.',
-                      style: const TextStyle(
-                        color: WolodyColors.textSecondary,
+                      style: TextStyle(
+                        color: colors.textSecondary,
                         fontSize: 15,
                       ),
                     ),
@@ -230,7 +233,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           fontWeight: FontWeight.w600,
                           color: _pickingDate
                               ? WolodyColors.brandBlue
-                              : CupertinoColors.white,
+                              : WolodyColors.of(context).textPrimary,
                         ),
                       ),
                       const SizedBox(width: 3),
@@ -272,6 +275,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
 
   /// 이미 오늘을 보고 있으면 흐리게 두고 눌리지 않게 한다.
   Widget _buildTodayButton() {
+    final surface = WolodyColors.of(context).surface;
     final today = _dateOnly(DateTime.now());
     final atToday =
         !_pickingDate &&
@@ -282,8 +286,8 @@ class _CalendarScreenState extends State<CalendarScreen> {
       child: CupertinoButton(
         padding: const EdgeInsets.symmetric(horizontal: 12),
         minimumSize: const Size(0, 30),
-        color: WolodyColors.surface,
-        disabledColor: WolodyColors.surface,
+        color: surface,
+        disabledColor: surface,
         borderRadius: BorderRadius.circular(15),
         onPressed: atToday ? null : _goToToday,
         child: Text(
@@ -292,7 +296,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
             fontSize: 13,
             fontWeight: FontWeight.w600,
             color: atToday
-                ? WolodyColors.textSecondary
+                ? WolodyColors.of(context).textSecondary
                 : WolodyColors.brandBlue,
           ),
         ),
@@ -358,7 +362,9 @@ class _CalendarScreenState extends State<CalendarScreen> {
             children: List.generate(7, (col) {
               final dayNumber = row * 7 + col - leadingBlanks + 1;
               if (dayNumber < 1 || dayNumber > daysInMonth) {
-                return const Expanded(child: SizedBox(height: 50));
+                return const Expanded(
+                  child: SizedBox(height: _cellHeight + 10),
+                );
               }
               return Expanded(
                 child: _buildDayCell(
@@ -373,27 +379,42 @@ class _CalendarScreenState extends State<CalendarScreen> {
     );
   }
 
+  /// 날짜 숫자 아래에 울디 얼굴이 들어갈 자리까지 포함한 칸 높이.
+  static const _cellHeight = 56.0;
+
+  /// 그날 가장 나중에 쓴 기록의 첫 감정. 기록이 없으면 null.
+  Mood? _moodOf(DateTime day) {
+    final entries = _byDay[day];
+    if (entries == null || entries.isEmpty) return null;
+    final latest = entries.reduce((a, b) => a.date.isAfter(b.date) ? a : b);
+    if (latest.emojis.isEmpty) return null;
+    return Mood.fromEmoji(latest.emojis.first);
+  }
+
   Widget _buildDayCell(BuildContext context, DateTime day) {
     final isSelected = day == _selected;
     final isToday = day == _dateOnly(DateTime.now());
+    final mood = _moodOf(day);
     return GestureDetector(
       onTap: () {
-        HapticFeedback.selectionClick();
+        Haptics.selection();
         setState(() => _selected = day);
       },
+      behavior: HitTestBehavior.opaque,
       child: Container(
-        height: 40,
+        height: _cellHeight,
         margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFF22365E) : null,
+          color: isSelected ? WolodyColors.of(context).daySelected : null,
           border: isSelected
               ? Border.all(color: WolodyColors.brandBlue, width: 1)
               : null,
-          borderRadius: BorderRadius.circular(5),
+          borderRadius: BorderRadius.circular(8),
         ),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.start,
           children: [
+            const SizedBox(height: 6),
             Text(
               '${day.day}',
               style: TextStyle(
@@ -403,9 +424,14 @@ class _CalendarScreenState extends State<CalendarScreen> {
                     : FontWeight.w400,
                 color: isSelected
                     ? WolodyColors.brandBlue
-                    : CupertinoColors.white,
+                    : WolodyColors.of(context).textPrimary,
               ),
             ),
+            // 기록한 날은 그날 고른 감정의 울디 얼굴을 숫자 아래에 미리 보여준다.
+            if (mood != null) ...[
+              const SizedBox(height: 2),
+              WooldyMoodPortrait(faceIndex: mood.faceIndex, size: 24),
+            ],
           ],
         ),
       ),

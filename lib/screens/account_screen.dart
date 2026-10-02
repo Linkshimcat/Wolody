@@ -1,7 +1,7 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../services/haptics.dart';
 import '../models/mood_entry.dart';
 import '../services/auth_service.dart';
 import '../services/mood_editor.dart';
@@ -31,7 +31,7 @@ class _AccountScreenState extends State<AccountScreen> {
   }
 
   void _openProfileEdit() {
-    HapticFeedback.lightImpact();
+    Haptics.light();
     // 아래쪽 저장 버튼이 탭 바에 가리지 않도록 탭 밖(루트)에서 띄운다.
     Navigator.of(
       context,
@@ -40,7 +40,7 @@ class _AccountScreenState extends State<AccountScreen> {
   }
 
   Future<void> _confirmSignOut() async {
-    HapticFeedback.lightImpact();
+    Haptics.light();
     final confirmed = await showCupertinoDialog<bool>(
       context: context,
       builder: (dialogContext) => CupertinoAlertDialog(
@@ -63,7 +63,7 @@ class _AccountScreenState extends State<AccountScreen> {
       ),
     );
     if (confirmed != true) return;
-    HapticFeedback.mediumImpact();
+    Haptics.medium();
     await AuthService.signOut();
     // 홈 배너에서 루트로 띄운 설정 화면이라면 로그인 화면 위에 남지 않게 걷어낸다.
     if (mounted) {
@@ -74,10 +74,63 @@ class _AccountScreenState extends State<AccountScreen> {
     }
   }
 
+  /// 개발용 둘러보기를 끝내고 로그인 화면으로 돌아간다. 이 기기의 기록은
+  /// 남아 있다가 로그인하면 계정으로 올라간다.
+  void _leaveGuest() {
+    Haptics.light();
+    AuthService.setGuest(false);
+    Navigator.of(context, rootNavigator: true).popUntil((r) => r.isFirst);
+  }
+
   /// 로그인한 계정과 로그아웃을 보여준다.
   Widget _buildLoginSection() {
-    // 앱은 로그인해야 쓸 수 있어서, 로그아웃되는 순간에만 비어 있다.
-    if (AuthService.currentUser == null) return const SizedBox.shrink();
+    if (AuthService.currentUser == null) {
+      // 앱은 로그인해야 쓸 수 있어서, 개발용 둘러보기 중이거나
+      // 로그아웃되는 순간에만 여기로 온다.
+      if (!AuthService.guest.value) return const SizedBox.shrink();
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _sectionTitle('로그인'),
+          _row(
+            onTap: _leaveGuest,
+            child: Row(
+              children: [
+                const Icon(
+                  CupertinoIcons.person_crop_circle_badge_plus,
+                  size: 22,
+                  color: WolodyColors.brandBlue,
+                ),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text(
+                    '로그인하러 가기',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  ),
+                ),
+                Icon(
+                  CupertinoIcons.chevron_right,
+                  size: 20,
+                  color: WolodyColors.of(context).textPrimary,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+            child: Text(
+              '개발용 둘러보기 중이에요. 기록은 이 기기에만 저장되고, 로그인하면 계정으로 올라가요.',
+              style: TextStyle(
+                fontSize: 12,
+                color: WolodyColors.of(context).textSecondary,
+              ),
+            ),
+          ),
+          const SizedBox(height: 34),
+        ],
+      );
+    }
 
     final provider = AuthService.currentProvider;
     return Column(
@@ -99,9 +152,9 @@ class _AccountScreenState extends State<AccountScreen> {
                         LoginProvider.kakao => '카카오 계정',
                         null => '로그인됨',
                       },
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
-                        color: WolodyColors.textSecondary,
+                        color: WolodyColors.of(context).textSecondary,
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -123,15 +176,15 @@ class _AccountScreenState extends State<AccountScreen> {
         const SizedBox(height: 12),
         _row(
           onTap: _confirmSignOut,
-          child: const Row(
+          child: Row(
             children: [
               Icon(
                 CupertinoIcons.square_arrow_right,
                 size: 20,
-                color: CupertinoColors.white,
+                color: WolodyColors.of(context).textPrimary,
               ),
-              SizedBox(width: 10),
-              Text(
+              const SizedBox(width: 10),
+              const Text(
                 '로그아웃',
                 style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
               ),
@@ -144,7 +197,7 @@ class _AccountScreenState extends State<AccountScreen> {
   }
 
   Future<void> _confirmDeleteAll() async {
-    HapticFeedback.lightImpact();
+    Haptics.light();
     final confirmed = await showCupertinoDialog<bool>(
       context: context,
       builder: (dialogContext) => CupertinoAlertDialog(
@@ -167,16 +220,13 @@ class _AccountScreenState extends State<AccountScreen> {
       ),
     );
     if (confirmed != true) return;
-    HapticFeedback.heavyImpact();
+    Haptics.heavy();
     await deleteAllMoodEntries();
   }
 
   Widget _sectionTitle(String title) => Padding(
     padding: const EdgeInsets.only(bottom: 16),
-    child: Text(
-      title,
-      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
-    ),
+    child: Text(title, style: kSectionTitleStyle),
   );
 
   Widget _row({required Widget child, VoidCallback? onTap}) {
@@ -186,8 +236,9 @@ class _AccountScreenState extends State<AccountScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         decoration: BoxDecoration(
-          color: WolodyColors.surfaceRaised,
+          color: WolodyColors.of(context).surfaceRaised,
           borderRadius: BorderRadius.circular(14),
+          boxShadow: WolodyColors.of(context).cardShadow,
         ),
         child: child,
       ),
@@ -209,9 +260,9 @@ class _AccountScreenState extends State<AccountScreen> {
           const SizedBox(height: 4),
           Text(
             label,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 12,
-              color: WolodyColors.textSecondary,
+              color: WolodyColors.of(context).textSecondary,
             ),
           ),
         ],
@@ -222,7 +273,7 @@ class _AccountScreenState extends State<AccountScreen> {
   @override
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
-      backgroundColor: WolodyColors.background,
+      backgroundColor: WolodyColors.of(context).background,
       child: SafeArea(
         bottom: false,
         child: Column(
@@ -310,9 +361,9 @@ class _AccountScreenState extends State<AccountScreen> {
                         AuthService.currentUser == null
                             ? '지금은 모든 기록이 이 기기에만 저장돼요.'
                             : '기록·사진·프로필이 계정에 저장돼요. 다른 기기에서도 그대로 볼 수 있어요.',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: WolodyColors.textSecondary,
+                          color: WolodyColors.of(context).textSecondary,
                         ),
                       ),
                     ),
@@ -365,6 +416,10 @@ class _ProviderBadge extends StatelessWidget {
       decoration: BoxDecoration(
         color: kakao ? const Color(0xFFFEE500) : CupertinoColors.white,
         shape: BoxShape.circle,
+        // 라이트 모드에서는 흰 구글 배지가 흰 행에 묻히지 않게 테두리를 두른다.
+        border: !kakao && WolodyColors.of(context).isLight
+            ? Border.all(color: WolodyColors.of(context).outline)
+            : null,
       ),
       child: SvgPicture.asset(
         kakao

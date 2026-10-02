@@ -3,11 +3,13 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart' show StringCharacters;
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:kakao_flutter_sdk_user/kakao_flutter_sdk_user.dart' as kakao;
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'auth_config.dart';
@@ -70,6 +72,26 @@ class AuthService {
     }
   }
 
+  /// 개발용: 로그인 없이 둘러보는 중인지. 디버그 빌드에서만 켜진다.
+  ///
+  /// 기록은 이 기기에만 저장되고, 나중에 로그인하면 계정으로 올라간다.
+  /// 출시용 빌드에서는 항상 false라 지금처럼 로그인해야 쓸 수 있다.
+  static final guest = ValueNotifier(false);
+  static const _guestKey = 'debug_guest';
+
+  static Future<void> loadGuest() async {
+    if (!kDebugMode) return;
+    final prefs = await SharedPreferences.getInstance();
+    guest.value = prefs.getBool(_guestKey) ?? false;
+  }
+
+  static Future<void> setGuest(bool value) async {
+    if (!kDebugMode) return;
+    guest.value = value;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_guestKey, value);
+  }
+
   /// 앱을 켤 때 한 번 부른다. 키가 없는 로그인은 건너뛴다.
   static Future<void> init() async {
     if (AuthConfig.kakaoReady) {
@@ -98,6 +120,8 @@ class AuthService {
       LoginProvider.kakao => await _signInWithKakao(),
     };
     if (signedIn) {
+      // 둘러보다 로그인했으면, 로그아웃할 때 둘러보기가 아닌 로그인 화면으로 가게 한다.
+      await setGuest(false);
       // 계정에 저장된 프로필이 있으면 그걸 쓰고, 처음 로그인이면
       // 로그인한 SNS의 이름·프로필 사진으로 Wolody 프로필을 만든다.
       if (!await ProfileStorage.pullFromCloud()) await _applySocialProfile();

@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
 import '../services/auth_service.dart';
@@ -77,7 +77,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
       Haptics.error();
       return;
     }
-    HapticFeedback.lightImpact();
+    Haptics.light();
     final attempt = ++_attempt;
     _leftApp = false;
     _toastTimer?.cancel();
@@ -139,19 +139,19 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     final padding = MediaQuery.paddingOf(context);
     final bottom = padding.bottom;
     return CupertinoPageScaffold(
-      backgroundColor: WolodyColors.background,
+      backgroundColor: WolodyColors.of(context).background,
       child: Stack(
         children: [
           Positioned.fill(
             child: Column(
               children: [
                 const Spacer(flex: 5),
-                const Text(
+                Text(
                   'Wolody',
                   style: TextStyle(
                     fontFamily: 'BM Jua',
                     fontSize: 64,
-                    color: Color(0xFF80A4FF),
+                    color: WolodyColors.of(context).logo,
                   ),
                 ),
                 const Spacer(flex: 3),
@@ -198,16 +198,26 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
                         loading: _loading == LoginProvider.kakao,
                         onPressed: () => _signIn(LoginProvider.kakao),
                       ),
-                      // const Padding(
-                      //   padding: EdgeInsets.only(top: 18),
-                      //   child: Text(
-                      //     '기록은 로그인한 계정에 안전하게 저장돼요.',
-                      //     style: TextStyle(
-                      //       color: WolodyColors.textSecondary,
-                      //       fontSize: 12,
-                      //     ),
-                      //   ),
-                      // ),
+                      // 안드로이드 로그인 설정이 끝나기 전에도 앱을 확인할 수 있도록
+                      // 디버그 빌드에만 둔다. 출시용 빌드에는 나타나지 않는다.
+                      if (kDebugMode)
+                        CupertinoButton(
+                          padding: const EdgeInsets.only(top: 14),
+                          minimumSize: Size.zero,
+                          onPressed: _loading == null
+                              ? () {
+                                  Haptics.light();
+                                  AuthService.setGuest(true);
+                                }
+                              : null,
+                          child: Text(
+                            '로그인 없이 둘러보기 (개발용)',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: WolodyColors.of(context).textSecondary,
+                            ),
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -252,9 +262,18 @@ class _LoginButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
+    final colors = WolodyColors.of(context);
+    return Container(
       width: double.infinity,
       height: 60,
+      // 라이트 배경에서는 흰 구글 버튼이 배경에 묻히지 않게 테두리를 두른다.
+      foregroundDecoration:
+          colors.isLight && background == CupertinoColors.white
+          ? BoxDecoration(
+              borderRadius: BorderRadius.circular(30),
+              border: Border.all(color: colors.outline),
+            )
+          : null,
       child: CupertinoButton(
         padding: EdgeInsets.zero,
         color: background,

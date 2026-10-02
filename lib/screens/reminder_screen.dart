@@ -1,9 +1,12 @@
+import 'dart:io';
+
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import '../services/haptics.dart';
 import '../models/reminder_settings.dart';
+import '../services/appearance_settings.dart';
 import '../services/trash_storage.dart';
 import '../services/live_activity_service.dart';
 import '../services/notification_service.dart';
@@ -70,25 +73,11 @@ class _ReminderScreenState extends State<ReminderScreen> {
   }
 
   Future<void> _toggleEnabled(bool value) async {
-    HapticFeedback.selectionClick();
+    Haptics.selection();
     if (value) {
       final granted = await NotificationService.instance.requestPermission();
       if (!granted) {
-        if (!mounted) return;
-        await showCupertinoDialog<void>(
-          context: context,
-          builder: (context) => CupertinoAlertDialog(
-            title: const Text('알림 권한이 필요해요'),
-            content: const Text('설정 앱에서 이 앱의 알림을 허용해주세요.'),
-            actions: [
-              CupertinoDialogAction(
-                isDefaultAction: true,
-                onPressed: () => Navigator.pop(context),
-                child: const Text('확인'),
-              ),
-            ],
-          ),
-        );
+        await _showPermissionNeeded();
         if (mounted) setState(() {});
         return;
       }
@@ -96,16 +85,74 @@ class _ReminderScreenState extends State<ReminderScreen> {
     await _update(_settings!.copyWith(enabled: value));
   }
 
+  Future<void> _showPermissionNeeded() async {
+    if (!mounted) return;
+    await showCupertinoDialog<void>(
+      context: context,
+      builder: (context) => CupertinoAlertDialog(
+        title: const Text('알림 권한이 필요해요'),
+        content: const Text('설정 앱에서 이 앱의 알림을 허용해주세요.'),
+        actions: [
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () => Navigator.pop(context),
+            child: const Text('확인'),
+          ),
+        ],
+      ),
+    );
+  }
+
   Future<void> _toggleLiveActivity(bool value) async {
-    HapticFeedback.selectionClick();
+    Haptics.selection();
+    // 안드로이드는 알림으로 띄우므로 알림 권한(Android 13+)이 먼저 있어야 한다.
+    if (value && Platform.isAndroid) {
+      final granted = await NotificationService.instance.requestPermission();
+      if (!granted) {
+        await _showPermissionNeeded();
+        return;
+      }
+    }
     setState(() => _liveActivityOn = value);
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool('live_activity_enabled', value);
     if (value) {
       await LiveActivityService.start();
+      await _suggestLiveUpdates();
     } else {
       await LiveActivityService.end();
     }
+  }
+
+  /// Android 16+에서 이 앱의 Live Update가 꺼져 있으면 상태 바 칩 없이 일반 알림으로만
+  /// 보이므로, 켤 수 있는 설정 화면을 안내한다.
+  Future<void> _suggestLiveUpdates() async {
+    if (!Platform.isAndroid) return;
+    if (await LiveActivityService.androidSdkInt() < 36) return;
+    if (await LiveActivityService.canPromote()) return;
+    if (!mounted) return;
+    final open = await showCupertinoDialog<bool>(
+      context: context,
+      builder: (dialogContext) => CupertinoAlertDialog(
+        title: const Text('Live Update가 꺼져 있어요'),
+        content: const Text(
+          '지금은 일반 알림으로만 보여요. 설정에서 켜면 상태 바와 잠금화면에 '
+          '오늘의 마음이 계속 표시돼요.',
+        ),
+        actions: [
+          CupertinoDialogAction(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('닫기'),
+          ),
+          CupertinoDialogAction(
+            isDefaultAction: true,
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('설정 열기'),
+          ),
+        ],
+      ),
+    );
+    if (open == true) await LiveActivityService.openPromotionSettings();
   }
 
   /// 마이 탭 Navigator에 쌓아 탭 바를 남기고 가장자리 스와이프로 돌아오게 한다.
@@ -115,10 +162,7 @@ class _ReminderScreenState extends State<ReminderScreen> {
     ).push(CupertinoPageRoute<void>(builder: (_) => screen));
   }
 
-  Widget _sectionTitle(String title) => Text(
-    title,
-    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
-  );
+  Widget _sectionTitle(String title) => Text(title, style: kSectionTitleStyle);
 
   Widget _toggleRow({
     required String icon,
@@ -130,12 +174,17 @@ class _ReminderScreenState extends State<ReminderScreen> {
       height: 48,
       padding: const EdgeInsets.symmetric(horizontal: 16),
       decoration: BoxDecoration(
-        color: WolodyColors.surfaceRaised,
+        color: WolodyColors.of(context).surfaceRaised,
         borderRadius: BorderRadius.circular(14),
+        boxShadow: WolodyColors.of(context).cardShadow,
       ),
       child: Row(
         children: [
-          WolodyIcon(icon, size: 17, color: CupertinoColors.white),
+          WolodyIcon(
+            icon,
+            size: 17,
+            color: WolodyColors.of(context).textPrimary,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
@@ -159,26 +208,29 @@ class _ReminderScreenState extends State<ReminderScreen> {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () {
-          HapticFeedback.selectionClick();
+          Haptics.selection();
           _update(_settings!.copyWith(mode: mode));
         },
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
           height: 44,
           decoration: BoxDecoration(
-            color: selected ? WolodyColors.brandBlue : const Color(0xFF34373D),
+            color: selected
+                ? WolodyColors.brandBlue
+                : WolodyColors.of(context).chipIdle,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              WolodyIcon(icon, size: 17, color: CupertinoColors.white),
+              WolodyIcon(icon, size: 17, color: _onChip(selected)),
               const SizedBox(width: 8),
               Text(
                 label,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
+                  color: _onChip(selected),
                 ),
               ),
             ],
@@ -204,10 +256,10 @@ class _ReminderScreenState extends State<ReminderScreen> {
     final days = Set<int>.from(_settings!.weekdays);
     // 요일이 하나도 없으면 알림이 영영 오지 않으니 마지막 하루는 남겨둔다.
     if (days.contains(weekday) && days.length == 1) {
-      HapticFeedback.heavyImpact();
+      Haptics.heavy();
       return;
     }
-    HapticFeedback.selectionClick();
+    Haptics.selection();
     if (!days.remove(weekday)) days.add(weekday);
     await _update(_settings!.copyWith(weekdays: days));
   }
@@ -218,7 +270,7 @@ class _ReminderScreenState extends State<ReminderScreen> {
     required int minute,
     required void Function(int hour, int minute) onPicked,
   }) async {
-    HapticFeedback.lightImpact();
+    Haptics.light();
     var picked = DateTime(2000, 1, 1, hour, minute);
     await showCupertinoModalPopup<void>(
       context: context,
@@ -227,8 +279,8 @@ class _ReminderScreenState extends State<ReminderScreen> {
         padding: EdgeInsets.only(
           bottom: MediaQuery.paddingOf(sheetContext).bottom,
         ),
-        decoration: const BoxDecoration(
-          color: WolodyColors.surface,
+        decoration: BoxDecoration(
+          color: WolodyColors.of(context).surface,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Column(
@@ -248,7 +300,7 @@ class _ReminderScreenState extends State<ReminderScreen> {
                   ),
                   CupertinoButton(
                     onPressed: () {
-                      HapticFeedback.lightImpact();
+                      Haptics.light();
                       Navigator.pop(sheetContext);
                       onPicked(picked.hour, picked.minute);
                     },
@@ -320,7 +372,11 @@ class _ReminderScreenState extends State<ReminderScreen> {
   }
 
   Widget _routineDivider() =>
-      Container(height: 0.5, color: WolodyColors.outline);
+      Container(height: 0.5, color: WolodyColors.of(context).outline);
+
+  /// 칩·모드 버튼 위 글자색. 고른 칩은 브랜드 블루 위라 두 모드 모두 흰색이다.
+  Color _onChip(bool selected) =>
+      selected ? CupertinoColors.white : WolodyColors.of(context).textPrimary;
 
   Widget _chip({
     required String label,
@@ -336,12 +392,18 @@ class _ReminderScreenState extends State<ReminderScreen> {
           height: 36,
           alignment: Alignment.center,
           decoration: BoxDecoration(
-            color: selected ? WolodyColors.brandBlue : const Color(0xFF34373D),
+            color: selected
+                ? WolodyColors.brandBlue
+                : WolodyColors.of(context).chipIdle,
             borderRadius: BorderRadius.circular(10),
           ),
           child: Text(
             label,
-            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: _onChip(selected),
+            ),
           ),
         ),
       ),
@@ -411,7 +473,11 @@ class _ReminderScreenState extends State<ReminderScreen> {
       style: TextStyle(
         fontSize: 12,
         height: 1.4,
-        color: warning ? const Color(0xFFE88E8E) : WolodyColors.textSecondary,
+        color: warning
+            ? (WolodyColors.of(context).isLight
+                  ? const Color(0xFFD14343)
+                  : const Color(0xFFE88E8E))
+            : WolodyColors.of(context).textSecondary,
       ),
     );
   }
@@ -424,8 +490,9 @@ class _ReminderScreenState extends State<ReminderScreen> {
         Container(
           padding: const EdgeInsets.fromLTRB(12, 14, 12, 16),
           decoration: BoxDecoration(
-            color: const Color(0xFF202329),
+            color: WolodyColors.of(context).groupCard,
             borderRadius: BorderRadius.circular(16),
+            boxShadow: WolodyColors.of(context).cardShadow,
           ),
           child: Column(
             children: [
@@ -518,7 +585,7 @@ class _ReminderScreenState extends State<ReminderScreen> {
                             label: _formatInterval(interval),
                             selected: settings.intervalMinutes == interval,
                             onTap: () {
-                              HapticFeedback.selectionClick();
+                              Haptics.selection();
                               _update(
                                 settings.copyWith(intervalMinutes: interval),
                               );
@@ -562,6 +629,62 @@ class _ReminderScreenState extends State<ReminderScreen> {
     );
   }
 
+  /// 시스템 / 라이트 / 다크 중에서 고른다. 고르는 즉시 앱 전체 색이 바뀐다.
+  Widget _appearanceRow() {
+    final colors = WolodyColors.of(context);
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+      decoration: BoxDecoration(
+        color: colors.surfaceRaised,
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: colors.cardShadow,
+      ),
+      child: Row(
+        children: [
+          Icon(
+            CupertinoIcons.circle_lefthalf_fill,
+            size: 18,
+            color: colors.textPrimary,
+          ),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              '화면 모드',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            ),
+          ),
+          ValueListenableBuilder<AppearanceMode>(
+            valueListenable: AppearanceSettings.mode,
+            builder: (context, mode, _) =>
+                CupertinoSlidingSegmentedControl<AppearanceMode>(
+                  groupValue: mode,
+                  backgroundColor: colors.chipIdle,
+                  onValueChanged: (value) {
+                    if (value == null || value == mode) return;
+                    Haptics.selection();
+                    AppearanceSettings.save(value);
+                  },
+                  children: {
+                    for (final m in AppearanceMode.values)
+                      m: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 6),
+                        child: Text(
+                          m.label,
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: colors.textPrimary,
+                          ),
+                        ),
+                      ),
+                  },
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _actionRow({
     String? icon,
     IconData? iconData,
@@ -572,22 +695,31 @@ class _ReminderScreenState extends State<ReminderScreen> {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () {
-        HapticFeedback.lightImpact();
+        Haptics.light();
         onTap();
       },
       child: Container(
         height: 50,
         padding: const EdgeInsets.symmetric(horizontal: 18),
         decoration: BoxDecoration(
-          color: WolodyColors.surfaceRaised,
+          color: WolodyColors.of(context).surfaceRaised,
           borderRadius: BorderRadius.circular(14),
+          boxShadow: WolodyColors.of(context).cardShadow,
         ),
         child: Row(
           children: [
             if (icon != null)
-              WolodyIcon(icon, size: 18, color: CupertinoColors.white)
+              WolodyIcon(
+                icon,
+                size: 18,
+                color: WolodyColors.of(context).textPrimary,
+              )
             else
-              Icon(iconData, size: 19, color: CupertinoColors.white),
+              Icon(
+                iconData,
+                size: 19,
+                color: WolodyColors.of(context).textPrimary,
+              ),
             const SizedBox(width: 10),
             Expanded(
               child: Text(
@@ -601,9 +733,9 @@ class _ReminderScreenState extends State<ReminderScreen> {
             if (detail != null) ...[
               Text(
                 detail,
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
-                  color: WolodyColors.textSecondary,
+                  color: WolodyColors.of(context).textSecondary,
                 ),
               ),
               const SizedBox(width: 6),
@@ -619,7 +751,7 @@ class _ReminderScreenState extends State<ReminderScreen> {
   Widget build(BuildContext context) {
     final settings = _settings;
     return CupertinoPageScaffold(
-      backgroundColor: WolodyColors.background,
+      backgroundColor: WolodyColors.of(context).background,
       child: settings == null
           ? const Center(child: CupertinoActivityIndicator())
           : SafeArea(
@@ -631,18 +763,12 @@ class _ReminderScreenState extends State<ReminderScreen> {
                     children: [
                       GlassBackButton(
                         onPressed: () {
-                          HapticFeedback.lightImpact();
+                          Haptics.light();
                           Navigator.maybePop(context);
                         },
                       ),
                       const SizedBox(width: 14),
-                      const Text(
-                        '설정',
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
+                      const Text('설정', style: kPageTitleStyle),
                     ],
                   ),
                   const SizedBox(height: 26),
@@ -657,7 +783,7 @@ class _ReminderScreenState extends State<ReminderScreen> {
                   const SizedBox(height: 26),
                   _toggleRow(
                     icon: 'iconsax-screenmirroring.svg',
-                    title: '잠금화면에 표시',
+                    title: '실시간 화면에 표시',
                     value: _liveActivityOn,
                     onChanged: _liveActivitySupported
                         ? _toggleLiveActivity
@@ -668,6 +794,10 @@ class _ReminderScreenState extends State<ReminderScreen> {
                   const SizedBox(height: 28),
                   _buildRoutine(settings),
                   const SizedBox(height: 24),
+                  _sectionTitle('화면'),
+                  const SizedBox(height: 20),
+                  _appearanceRow(),
+                  const SizedBox(height: 34),
                   _sectionTitle('기록 관리'),
                   const SizedBox(height: 20),
                   _actionRow(

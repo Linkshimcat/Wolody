@@ -30,6 +30,33 @@ import UIKit
     registerHaptics(
       messenger: engineBridge.pluginRegistry.registrar(forPlugin: "Haptics")!.messenger()
     )
+    registerAppearance(
+      messenger: engineBridge.pluginRegistry.registrar(forPlugin: "Appearance")!.messenger()
+    )
+  }
+
+  /// 앱에서 고른 화면 모드(시스템/라이트/다크)를 창에 입힌다. 네이티브 탭 바·스위치·
+  /// 상태 바가 시스템 설정과 상관없이 Flutter 화면과 같은 모드로 그려진다.
+  private func registerAppearance(messenger: FlutterBinaryMessenger) {
+    let channel = FlutterMethodChannel(name: "wolody/appearance", binaryMessenger: messenger)
+    channel.setMethodCallHandler { call, result in
+      guard call.method == "setMode" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      let style: UIUserInterfaceStyle
+      switch call.arguments as? String {
+      case "light": style = .light
+      case "dark": style = .dark
+      default: style = .unspecified
+      }
+      for case let scene as UIWindowScene in UIApplication.shared.connectedScenes {
+        for window in scene.windows {
+          window.overrideUserInterfaceStyle = style
+        }
+      }
+      result(nil)
+    }
   }
 
   /// Flutter의 HapticFeedback에는 없는 iOS 알림 햅틱(성공·경고·오류)을 열어 준다.

@@ -1,9 +1,9 @@
 import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
+import '../services/haptics.dart';
 import '../models/mood.dart';
 import '../models/mood_entry.dart';
 import '../services/mood_storage.dart';
@@ -57,7 +57,7 @@ class _MoodCardState extends State<MoodCard> {
     final shouldOpen =
         _offset.abs() >= _swipeDistance * .38 || velocity.abs() > 520;
     final direction = velocity.abs() > 520 ? velocity.sign : _offset.sign;
-    HapticFeedback.selectionClick();
+    Haptics.selection();
     setState(() {
       _dragging = false;
       _offset = shouldOpen ? direction * _swipeDistance : 0;
@@ -99,6 +99,7 @@ class _MoodCardState extends State<MoodCard> {
   @override
   Widget build(BuildContext context) {
     final moods = widget.entry.emojis.map(Mood.fromEmoji).toList();
+    final colors = WolodyColors.of(context);
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -140,8 +141,9 @@ class _MoodCardState extends State<MoodCard> {
               margin: const EdgeInsets.only(bottom: 16),
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: WolodyColors.surface,
+                color: colors.surface,
                 borderRadius: BorderRadius.circular(24),
+                boxShadow: colors.cardShadow,
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -168,10 +170,10 @@ class _MoodCardState extends State<MoodCard> {
                           children: [
                             Text(
                               moods.map((m) => m.label).join(' · '),
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontWeight: FontWeight.w600,
                                 fontSize: 15,
-                                color: WolodyColors.textPrimary,
+                                color: colors.textPrimary,
                               ),
                             ),
                             const SizedBox(height: 2),
@@ -180,9 +182,9 @@ class _MoodCardState extends State<MoodCard> {
                                 'M월 d일 (E) HH:mm',
                                 'ko_KR',
                               ).format(widget.entry.date),
-                              style: const TextStyle(
+                              style: TextStyle(
                                 fontSize: 12,
-                                color: WolodyColors.textSecondary,
+                                color: colors.textSecondary,
                               ),
                             ),
                           ],
@@ -191,15 +193,15 @@ class _MoodCardState extends State<MoodCard> {
                     ],
                   ),
                   const SizedBox(height: 12),
-                  const Row(
+                  Row(
                     children: [
                       WolodyIcon(
                         'iconsax-note.svg',
                         size: 16,
-                        color: WolodyColors.textPrimary,
+                        color: colors.textPrimary,
                       ),
-                      SizedBox(width: 5),
-                      Text(
+                      const SizedBox(width: 5),
+                      const Text(
                         '기록',
                         style: TextStyle(
                           fontSize: 12,
@@ -214,10 +216,10 @@ class _MoodCardState extends State<MoodCard> {
                       widget.entry.note,
                       maxLines: 4,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12,
                         height: 1.2,
-                        color: WolodyColors.textSecondary,
+                        color: colors.textSecondary,
                       ),
                     ),
                   ],
@@ -254,10 +256,10 @@ class _MoodCardState extends State<MoodCard> {
                               : Container(
                                   height: 160,
                                   alignment: Alignment.center,
-                                  color: WolodyColors.surfaceRaised,
-                                  child: const Icon(
+                                  color: colors.inset,
+                                  child: Icon(
                                     CupertinoIcons.photo,
-                                    color: WolodyColors.textSecondary,
+                                    color: colors.textSecondary,
                                   ),
                                 ),
                         ),

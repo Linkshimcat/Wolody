@@ -1,5 +1,6 @@
 import 'package:flutter/cupertino.dart';
 
+import '../theme.dart';
 import 'glass_surface.dart';
 
 /// 보조 화면 TopBar의 뒤로 가기 버튼.
@@ -14,14 +15,14 @@ class GlassBackButton extends StatelessWidget {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onPressed,
-      child: const SizedBox.square(
+      child: SizedBox.square(
         dimension: 42,
         child: GlassSurface(
           child: Center(
             child: Icon(
               CupertinoIcons.chevron_left,
               size: 20,
-              color: CupertinoColors.white,
+              color: WolodyColors.of(context).textPrimary,
             ),
           ),
         ),

@@ -2,8 +2,8 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/services.dart';
 
+import '../services/haptics.dart';
 import '../services/mood_editor.dart';
 import '../services/platform_info.dart';
 import '../theme.dart';
@@ -82,12 +82,12 @@ class _RootScreenState extends State<RootScreen> {
       // iOS 관례: 보고 있는 탭을 다시 누르면 그 탭의 첫 화면으로 돌아간다.
       final navigator = _myTabNavigator.currentState;
       if (index == 2 && navigator != null && navigator.canPop()) {
-        HapticFeedback.selectionClick();
+        Haptics.selection();
         navigator.popUntil((route) => route.isFirst);
       }
       return;
     }
-    HapticFeedback.selectionClick();
+    Haptics.selection();
     setState(() {
       _index = index;
       _barDragPosition = index.toDouble();
@@ -107,7 +107,7 @@ class _RootScreenState extends State<RootScreen> {
       2.0,
     );
     final index = position.round();
-    if (index != _index) HapticFeedback.selectionClick();
+    if (index != _index) Haptics.selection();
     setState(() {
       _barDragPosition = position;
       _index = index;
@@ -129,7 +129,7 @@ class _RootScreenState extends State<RootScreen> {
   }
 
   Future<void> _addMood() async {
-    HapticFeedback.lightImpact();
+    Haptics.light();
     if (!await createMoodEntry(context)) return;
     // 기록하면 목록으로 돌아가 방금 쓴 카드를 보여준다.
     setState(() {
@@ -210,7 +210,7 @@ class _RootScreenState extends State<RootScreen> {
               border: Border.all(
                 color: Platform.isIOS
                     ? const Color(0x00000000)
-                    : WolodyColors.outline,
+                    : WolodyColors.of(context).outline,
               ),
               borderRadius: BorderRadius.circular(34),
             ),
@@ -317,7 +317,7 @@ class _RootScreenState extends State<RootScreen> {
                     size: 22,
                     color: selected
                         ? WolodyColors.brandBlue
-                        : CupertinoColors.white,
+                        : WolodyColors.of(context).textPrimary,
                   )
                 else if (index == 2)
                   const ProfileAvatar(size: 23)
@@ -327,7 +327,7 @@ class _RootScreenState extends State<RootScreen> {
                     size: 22,
                     color: selected
                         ? WolodyColors.brandBlue
-                        : CupertinoColors.white,
+                        : WolodyColors.of(context).textPrimary,
                   ),
                 const SizedBox(height: 2),
                 Text(
@@ -337,7 +337,7 @@ class _RootScreenState extends State<RootScreen> {
                     fontWeight: FontWeight.w600,
                     color: selected
                         ? WolodyColors.brandBlue
-                        : CupertinoColors.white,
+                        : WolodyColors.of(context).textPrimary,
                   ),
                 ),
               ],

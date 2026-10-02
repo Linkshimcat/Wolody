@@ -24,6 +24,9 @@ android {
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+        // 카카오 네이티브 앱 키. lib/services/auth_config.dart의 kakaoNativeAppKey와 같아야
+        // 카카오계정 로그인이 끝난 뒤 kakao{키}://oauth 로 앱에 돌아올 수 있다.
+        manifestPlaceholders["kakaoNativeAppKey"] = "7eb2c801338a24d4f83dff2d0c703d2d"
     }
 
     buildTypes {

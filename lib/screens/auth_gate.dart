@@ -10,6 +10,7 @@ import 'root_screen.dart';
 /// Wolody는 기록을 계정(클라우드)에 저장하므로 로그인해야 쓸 수 있다.
 /// 로그인돼 있으면 앱으로, 아니면 로그인 화면을 보여준다. 로그아웃하면
 /// 인증 상태가 바뀌면서 자동으로 로그인 화면으로 돌아간다.
+/// 디버그 빌드에서는 "로그인 없이 둘러보기"([AuthService.guest])로도 들어갈 수 있다.
 class AuthGate extends StatelessWidget {
   const AuthGate({super.key});
 
@@ -19,9 +20,12 @@ class AuthGate extends StatelessWidget {
     if (!AuthService.isAvailable) return const RootScreen();
     return StreamBuilder<AuthState>(
       stream: AuthService.authChanges,
-      builder: (context, _) => AuthService.currentUser != null
-          ? const RootScreen()
-          : const LoginScreen(),
+      builder: (context, _) => ValueListenableBuilder<bool>(
+        valueListenable: AuthService.guest,
+        builder: (context, guest, _) => AuthService.currentUser != null || guest
+            ? const RootScreen()
+            : const LoginScreen(),
+      ),
     );
   }
 }

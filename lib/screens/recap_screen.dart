@@ -1,6 +1,6 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/services.dart';
 
+import '../services/haptics.dart';
 import '../models/mood.dart';
 import '../models/mood_entry.dart';
 import '../services/mood_editor.dart';
@@ -19,7 +19,7 @@ class RecapScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final nickname = ProfileStorage.profile.value.nickname;
     return CupertinoPageScaffold(
-      backgroundColor: WolodyColors.background,
+      backgroundColor: WolodyColors.of(context).background,
       child: SafeArea(
         bottom: false,
         child: Column(
@@ -34,8 +34,8 @@ class RecapScreen extends StatelessWidget {
                     return Center(
                       child: Text(
                         '아직 $nickname의 리캡이 없어요.',
-                        style: const TextStyle(
-                          color: WolodyColors.textSecondary,
+                        style: TextStyle(
+                          color: WolodyColors.of(context).textSecondary,
                           fontSize: 14,
                         ),
                       ),
@@ -153,7 +153,7 @@ class _MonthSection extends StatelessWidget {
                   width: 150,
                   height: 200,
                   onTap: () {
-                    HapticFeedback.lightImpact();
+                    Haptics.light();
                     editMoodEntry(context, photos[index]);
                   },
                 ),
@@ -177,8 +177,9 @@ class _SummaryCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: WolodyColors.surface,
+        color: WolodyColors.of(context).surface,
         borderRadius: BorderRadius.circular(24),
+        boxShadow: WolodyColors.of(context).cardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -192,11 +193,11 @@ class _SummaryCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         '가장 많이 느낀 마음',
                         style: TextStyle(
                           fontSize: 12,
-                          color: WolodyColors.textSecondary,
+                          color: WolodyColors.of(context).textSecondary,
                         ),
                       ),
                       const SizedBox(height: 4),
@@ -210,9 +211,9 @@ class _SummaryCard extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         '${top.value}번 골랐어요',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: WolodyColors.textSecondary,
+                          color: WolodyColors.of(context).textSecondary,
                         ),
                       ),
                     ],
@@ -277,7 +278,7 @@ class _Stat extends StatelessWidget {
         margin: const EdgeInsets.symmetric(horizontal: 3),
         padding: const EdgeInsets.symmetric(vertical: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFF2D3648),
+          color: WolodyColors.of(context).inset,
           borderRadius: BorderRadius.circular(14),
         ),
         child: Column(
@@ -293,9 +294,9 @@ class _Stat extends StatelessWidget {
             const SizedBox(height: 2),
             Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
-                color: WolodyColors.textSecondary,
+                color: WolodyColors.of(context).textSecondary,
               ),
             ),
           ],
@@ -354,9 +355,9 @@ class _MoodBar extends StatelessWidget {
                   const SizedBox(width: 5),
                   Text(
                     '${entry.key.label} ${(entry.value * 100 / total).round()}%',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 12,
-                      color: WolodyColors.textSecondary,
+                      color: WolodyColors.of(context).textSecondary,
                     ),
                   ),
                 ],

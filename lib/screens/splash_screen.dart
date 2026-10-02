@@ -52,7 +52,7 @@ class _SplashScreenState extends State<SplashScreen>
   @override
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
-      backgroundColor: WolodyColors.background,
+      backgroundColor: WolodyColors.of(context).background,
       child: Center(
         child: _RollingWordmark(word: 'Wolody', progress: _roll),
       ),
@@ -72,7 +72,6 @@ class _RollingWordmark extends StatelessWidget {
     fontSize: 54,
     height: 1.2,
     letterSpacing: 4,
-    color: Color(0xFF80A4FF),
   );
 
   /// 각 글자가 멈추기 전에 지나가는 글자 수.
@@ -94,7 +93,7 @@ class _RollingWordmark extends StatelessWidget {
                 letters[(i + k) % letters.length],
               letters[i],
             ],
-            style: _style,
+            style: _style.copyWith(color: WolodyColors.of(context).logo),
             progress: CurvedAnimation(
               parent: progress,
               curve: Interval(

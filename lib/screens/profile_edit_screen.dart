@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
+import '../services/haptics.dart';
 import '../services/profile_storage.dart';
 import '../theme.dart';
 import '../widgets/glass_back_button.dart';
@@ -70,7 +71,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   }
 
   void _showPhotoOptions() {
-    HapticFeedback.lightImpact();
+    Haptics.light();
     FocusScope.of(context).unfocus();
     showCupertinoModalPopup<void>(
       context: context,
@@ -113,7 +114,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   }
 
   Future<void> _save() async {
-    HapticFeedback.mediumImpact();
+    Haptics.medium();
     setState(() => _saving = true);
     await ProfileStorage.save(
       nickname: _nickname,
@@ -127,7 +128,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   Widget build(BuildContext context) {
     final bottom = MediaQuery.paddingOf(context).bottom;
     return CupertinoPageScaffold(
-      backgroundColor: WolodyColors.background,
+      backgroundColor: WolodyColors.of(context).background,
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: () => FocusScope.of(context).unfocus(),
@@ -137,7 +138,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
             children: [
               _TopBar(
                 onBack: () {
-                  HapticFeedback.lightImpact();
+                  Haptics.light();
                   Navigator.pop(context);
                 },
               ),
@@ -147,13 +148,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                   children: [
                     Center(child: _buildAvatarPicker()),
                     const SizedBox(height: 48),
-                    const Text(
-                      '닉네임',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
+                    const Text('닉네임', style: kSectionTitleStyle),
                     const SizedBox(height: 20),
                     CupertinoTextField(
                       controller: _nicknameController,
@@ -172,18 +167,19 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                       onSubmitted: (_) {
                         if (_canSave) _save();
                       },
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w600,
-                        color: WolodyColors.textPrimary,
+                        color: WolodyColors.of(context).textPrimary,
                       ),
-                      placeholderStyle: const TextStyle(
+                      placeholderStyle: TextStyle(
                         fontSize: 14,
-                        color: WolodyColors.textSecondary,
+                        color: WolodyColors.of(context).textSecondary,
                       ),
                       decoration: BoxDecoration(
-                        color: WolodyColors.surface,
+                        color: WolodyColors.of(context).surface,
                         borderRadius: BorderRadius.circular(18),
+                        boxShadow: WolodyColors.of(context).cardShadow,
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -194,18 +190,18 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                             _nickname.isEmpty
                                 ? '닉네임은 한 글자 이상이어야 해요'
                                 : '프로필과 마이 탭에 보여요',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
-                              color: WolodyColors.textSecondary,
+                              color: WolodyColors.of(context).textSecondary,
                             ),
                           ),
                         ),
                         Text(
                           '${_nicknameController.text.characters.length}'
                           '/${UserProfile.maxNicknameLength}',
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
-                            color: WolodyColors.textSecondary,
+                            color: WolodyColors.of(context).textSecondary,
                           ),
                         ),
                       ],
@@ -250,7 +246,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                     color: WolodyColors.brandBlue,
                     shape: BoxShape.circle,
                     border: Border.all(
-                      color: WolodyColors.background,
+                      color: WolodyColors.of(context).background,
                       width: 3,
                     ),
                   ),
@@ -292,10 +288,7 @@ class _TopBar extends StatelessWidget {
         children: [
           GlassBackButton(onPressed: onBack),
           const SizedBox(width: 14),
-          const Text(
-            '프로필 수정',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-          ),
+          const Text('프로필 수정', style: kPageTitleStyle),
         ],
       ),
     );

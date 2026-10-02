@@ -1,7 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter/services.dart';
 
+import '../services/haptics.dart';
 import '../theme.dart';
 import '../widgets/wolody_top_bar.dart';
 
@@ -43,7 +43,7 @@ class _LicensesScreenState extends State<LicensesScreen> {
     final packages = byPackage?.keys.toList()
       ?..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
     return CupertinoPageScaffold(
-      backgroundColor: WolodyColors.background,
+      backgroundColor: WolodyColors.of(context).background,
       child: SafeArea(
         bottom: false,
         child: Column(
@@ -68,10 +68,10 @@ class _LicensesScreenState extends State<LicensesScreen> {
                             'Wolody는 아래 오픈소스 소프트웨어와 폰트로 만들어졌어요. '
                             '항목을 누르면 라이선스 전문을 볼 수 있어요. '
                             '(${packages.length}개)',
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 12,
                               height: 1.5,
-                              color: WolodyColors.textSecondary,
+                              color: WolodyColors.of(context).textSecondary,
                             ),
                           );
                         }
@@ -81,7 +81,7 @@ class _LicensesScreenState extends State<LicensesScreen> {
                           name: package,
                           count: licenses.length,
                           onTap: () {
-                            HapticFeedback.lightImpact();
+                            Haptics.light();
                             Navigator.of(context).push(
                               CupertinoPageRoute<void>(
                                 builder: (_) => _LicenseDetailScreen(
@@ -122,8 +122,9 @@ class _PackageRow extends StatelessWidget {
         height: 50,
         padding: const EdgeInsets.symmetric(horizontal: 18),
         decoration: BoxDecoration(
-          color: WolodyColors.surfaceRaised,
+          color: WolodyColors.of(context).surfaceRaised,
           borderRadius: BorderRadius.circular(14),
+          boxShadow: WolodyColors.of(context).cardShadow,
         ),
         child: Row(
           children: [
@@ -141,9 +142,9 @@ class _PackageRow extends StatelessWidget {
             if (count > 1)
               Text(
                 '라이선스 $count개',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 12,
-                  color: WolodyColors.textSecondary,
+                  color: WolodyColors.of(context).textSecondary,
                 ),
               ),
             const SizedBox(width: 6),
@@ -164,7 +165,7 @@ class _LicenseDetailScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CupertinoPageScaffold(
-      backgroundColor: WolodyColors.background,
+      backgroundColor: WolodyColors.of(context).background,
       child: SafeArea(
         bottom: false,
         child: Column(
@@ -179,7 +180,7 @@ class _LicenseDetailScreen extends StatelessWidget {
                       Container(
                         height: 0.5,
                         margin: const EdgeInsets.symmetric(vertical: 20),
-                        color: WolodyColors.outline,
+                        color: WolodyColors.of(context).outline,
                       ),
                     for (final paragraph in licenses[i])
                       Padding(
@@ -198,10 +199,12 @@ class _LicenseDetailScreen extends StatelessWidget {
                                   LicenseParagraph.centeredIndent
                               ? TextAlign.center
                               : TextAlign.start,
-                          style: const TextStyle(
+                          style: TextStyle(
                             fontSize: 12,
                             height: 1.5,
-                            color: Color(0xFFC9CDD4),
+                            color: WolodyColors.of(context).isLight
+                                ? const Color(0xFF374151)
+                                : const Color(0xFFC9CDD4),
                           ),
                         ),
                       ),

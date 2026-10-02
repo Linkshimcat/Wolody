@@ -108,8 +108,7 @@ private final class NativeBarContainer: UIView, UITabBarDelegate {
 
     backgroundColor = .clear
 
-    // 앱은 항상 어두운 화면이므로 시스템이 라이트 모드여도 어두운 유리로 그린다.
-    overrideUserInterfaceStyle = .dark
+    // 라이트/다크는 창에 걸린 모드(설정 → 화면)를 그대로 따른다.
 
     var items: [UITabBarItem] = []
     for (index, title) in titles.enumerated() {

@@ -1,6 +1,6 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/services.dart';
 
+import '../services/haptics.dart';
 import '../models/mood_entry.dart';
 import '../services/mood_editor.dart';
 import '../services/mood_storage.dart';
@@ -9,6 +9,7 @@ import '../theme.dart';
 import '../widgets/cover_flow_item.dart';
 import '../widgets/memory_card.dart';
 import '../widgets/profile_avatar.dart';
+import '../widgets/wolody_icon.dart';
 import 'profile_edit_screen.dart';
 import 'recap_screen.dart';
 import 'reminder_screen.dart';
@@ -44,7 +45,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _openRecap() {
-    HapticFeedback.lightImpact();
+    Haptics.light();
     Navigator.of(
       context,
     ).push(CupertinoPageRoute<void>(builder: (_) => const RecapScreen()));
@@ -80,7 +81,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _openProfileEdit() {
-    HapticFeedback.lightImpact();
+    Haptics.light();
     // 아래쪽 저장 버튼이 탭 바에 가리지 않도록 탭 밖(루트)에서 띄운다.
     Navigator.of(
       context,
@@ -89,7 +90,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   void _openSettings() {
-    HapticFeedback.lightImpact();
+    Haptics.light();
     // 마이 탭 Navigator에 쌓아 탭 바를 남기고 가장자리 스와이프로 돌아오게 한다.
     Navigator.of(
       context,
@@ -102,7 +103,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         .where((entry) => entry.imageFileName != null)
         .toList();
     return CupertinoPageScaffold(
-      backgroundColor: WolodyColors.background,
+      backgroundColor: WolodyColors.of(context).background,
       child: SafeArea(
         bottom: false,
         child: CustomScrollView(
@@ -120,8 +121,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            fontSize: 23,
-                            fontWeight: FontWeight.w700,
+                            fontFamily: 'BM Jua',
+                            fontSize: 26,
                           ),
                         ),
                       ),
@@ -129,7 +130,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     CupertinoButton(
                       padding: EdgeInsets.zero,
                       onPressed: _openSettings,
-                      child: const Icon(CupertinoIcons.gear_alt_fill, size: 24),
+                      // 다크에서는 흰색, 라이트에서는 검정에 가까운 글자색을 따른다.
+                      child: Icon(
+                        CupertinoIcons.gear_alt_fill,
+                        size: 24,
+                        color: WolodyColors.of(context).textPrimary,
+                      ),
                     ),
                   ],
                 ),
@@ -139,10 +145,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
               padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
               sliver: SliverToBoxAdapter(
                 child: Container(
-                  padding: const EdgeInsets.all(18),
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 22),
                   decoration: BoxDecoration(
-                    color: WolodyColors.surface,
+                    color: WolodyColors.of(context).surface,
                     borderRadius: BorderRadius.circular(24),
+                    boxShadow: WolodyColors.of(context).cardShadow,
                   ),
                   child: Column(
                     children: [
@@ -168,33 +175,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 ),
                               ),
                             ),
-                            const Icon(
+                            Icon(
                               CupertinoIcons.chevron_right,
                               size: 18,
-                              color: WolodyColors.textSecondary,
+                              color: WolodyColors.of(context).textSecondary,
                             ),
                           ],
                         ),
                       ),
-                      const SizedBox(height: 33),
+                      const SizedBox(height: 34),
                       Row(
                         children: [
                           _ProfileStat(
                             label: '연속 출석',
                             value: '$_streak',
-                            icon: CupertinoIcons.checkmark_seal_fill,
+                            icon: 'iconsax-tick-circle.svg',
                           ),
                           const SizedBox(width: 8),
                           _ProfileStat(
                             label: '총 기록 수',
                             value: '${_entries.length}',
-                            icon: CupertinoIcons.calendar,
+                            icon: 'iconsax-note.svg',
                           ),
                           const SizedBox(width: 8),
                           _ProfileStat(
-                            label: '최대 감정',
+                            label: '최다 감정',
                             value: '$_maxMoodCount',
-                            icon: CupertinoIcons.smiley,
+                            icon: 'iconsax-emoji-normal.svg',
                           ),
                         ],
                       ),
@@ -231,10 +238,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             ),
                           ),
                           const SizedBox(width: 6),
-                          const Icon(
+                          Icon(
                             CupertinoIcons.chevron_right,
                             size: 20,
-                            color: CupertinoColors.white,
+                            color: WolodyColors.of(context).textPrimary,
                           ),
                         ],
                       ),
@@ -249,10 +256,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   height: 240,
                   child: Center(
                     child: Text(
-                      '아직 ${ProfileStorage.profile.value.nickname}의 리캡이 없어요.',
+                      '아직 Wolody의 리캡이 없어요.',
                       textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: WolodyColors.textSecondary,
+                      style: TextStyle(
+                        color: WolodyColors.of(context).textSecondary,
                         fontSize: 14,
                       ),
                     ),
@@ -272,7 +279,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 class _ProfileStat extends StatelessWidget {
   final String label;
   final String value;
-  final IconData icon;
+  final String icon;
 
   const _ProfileStat({
     required this.label,
@@ -285,9 +292,9 @@ class _ProfileStat extends StatelessWidget {
     return Expanded(
       child: Container(
         height: 122,
-        padding: const EdgeInsets.all(10),
+        padding: const EdgeInsets.fromLTRB(12, 11, 10, 0),
         decoration: BoxDecoration(
-          color: const Color(0xFF2D3648),
+          color: WolodyColors.of(context).inset,
           borderRadius: BorderRadius.circular(15),
         ),
         child: Column(
@@ -295,29 +302,35 @@ class _ProfileStat extends StatelessWidget {
           children: [
             Row(
               children: [
-                Icon(icon, size: 13, color: CupertinoColors.white),
-                const SizedBox(width: 4),
+                WolodyIcon(
+                  icon,
+                  size: 17,
+                  color: WolodyColors.of(context).textPrimary,
+                ),
+                const SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
                 ),
               ],
             ),
-            const Spacer(),
-            Center(
-              child: Text(
-                value,
-                style: const TextStyle(
-                  color: WolodyColors.brandBlue,
-                  fontSize: 28,
-                  fontWeight: FontWeight.w700,
+            // 숫자는 라벨 아래 남은 영역의 한가운데에 둔다.
+            Expanded(
+              child: Center(
+                child: Text(
+                  value,
+                  style: const TextStyle(
+                    color: WolodyColors.brandBlue,
+                    fontSize: 32,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ),
@@ -354,7 +367,7 @@ class _MemoryCarouselState extends State<_MemoryCarousel> {
       child: PageView.builder(
         controller: _controller,
         itemCount: widget.memories.length,
-        onPageChanged: (_) => HapticFeedback.selectionClick(),
+        onPageChanged: (_) => Haptics.selection(),
         itemBuilder: (context, index) => CoverFlowItem(
           controller: _controller,
           index: index,
@@ -364,7 +377,7 @@ class _MemoryCarouselState extends State<_MemoryCarousel> {
               width: 188,
               height: 250,
               onTap: () {
-                HapticFeedback.lightImpact();
+                Haptics.light();
                 editMoodEntry(context, widget.memories[index]);
               },
             ),

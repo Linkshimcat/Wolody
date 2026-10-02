@@ -2,7 +2,7 @@ import 'package:flutter/cupertino.dart';
 
 import '../models/mood_entry.dart';
 import '../screens/mood_entry_flow_screen.dart';
-import '../widgets/mood_picker_sheet.dart';
+import '../models/mood_picker_result.dart';
 import 'live_activity_service.dart';
 import 'mood_storage.dart';
 import 'widget_service.dart';

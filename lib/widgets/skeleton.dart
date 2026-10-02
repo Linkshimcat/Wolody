@@ -56,9 +56,6 @@ class _ShimmerScope extends InheritedNotifier<Animation<double>> {
 
 /// 내용이 들어갈 자리를 나타내는 둥근 회색 조각.
 class SkeletonBox extends StatelessWidget {
-  static const base = WolodyColors.selectorSurface;
-  static const highlight = Color(0xFF34405A);
-
   final double? width;
   final double height;
   final double radius;
@@ -83,6 +80,8 @@ class SkeletonBox extends StatelessWidget {
     final animation = _ShimmerScope.of(context);
     // -0.5 → 1.5로 지나가는 밝은 띠. Shimmer 밖에서는 빛 없이 그린다.
     final t = animation == null ? null : animation.value * 2 - 0.5;
+    final colors = WolodyColors.of(context);
+    final base = colors.skeletonBase;
     return Container(
       width: width,
       height: height,
@@ -91,7 +90,7 @@ class SkeletonBox extends StatelessWidget {
         gradient: t == null
             ? null
             : LinearGradient(
-                colors: const [base, highlight, base],
+                colors: [base, colors.skeletonHighlight, base],
                 stops: [t - 0.35, t, t + 0.35],
               ),
         shape: shape,
@@ -115,8 +114,9 @@ class MoodCardSkeleton extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 16),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: WolodyColors.surface,
+        color: WolodyColors.of(context).surface,
         borderRadius: BorderRadius.circular(24),
+        boxShadow: WolodyColors.of(context).cardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

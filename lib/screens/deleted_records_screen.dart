@@ -1,6 +1,6 @@
 import 'package:flutter/cupertino.dart';
-import 'package:flutter/services.dart';
 
+import '../services/haptics.dart';
 import '../services/mood_editor.dart';
 import '../services/trash_storage.dart';
 import '../theme.dart';
@@ -30,7 +30,7 @@ class _DeletedRecordsScreenState extends State<DeletedRecordsScreen> {
   }
 
   void _showActions(DeletedEntry deleted) {
-    HapticFeedback.lightImpact();
+    Haptics.light();
     showCupertinoModalPopup<void>(
       context: context,
       builder: (sheetContext) => CupertinoActionSheet(
@@ -38,7 +38,7 @@ class _DeletedRecordsScreenState extends State<DeletedRecordsScreen> {
           CupertinoActionSheetAction(
             onPressed: () async {
               Navigator.pop(sheetContext);
-              HapticFeedback.mediumImpact();
+              Haptics.medium();
               await restoreMoodEntry(deleted);
               await _load();
             },
@@ -48,7 +48,7 @@ class _DeletedRecordsScreenState extends State<DeletedRecordsScreen> {
             isDestructiveAction: true,
             onPressed: () async {
               Navigator.pop(sheetContext);
-              HapticFeedback.heavyImpact();
+              Haptics.heavy();
               await TrashStorage.deleteForever(deleted);
               await _load();
             },
@@ -64,7 +64,7 @@ class _DeletedRecordsScreenState extends State<DeletedRecordsScreen> {
   }
 
   Future<void> _confirmClear() async {
-    HapticFeedback.lightImpact();
+    Haptics.light();
     final confirmed = await showCupertinoDialog<bool>(
       context: context,
       builder: (dialogContext) => CupertinoAlertDialog(
@@ -84,7 +84,7 @@ class _DeletedRecordsScreenState extends State<DeletedRecordsScreen> {
       ),
     );
     if (confirmed != true) return;
-    HapticFeedback.heavyImpact();
+    Haptics.heavy();
     await TrashStorage.clear();
     await _load();
   }
@@ -93,7 +93,7 @@ class _DeletedRecordsScreenState extends State<DeletedRecordsScreen> {
   Widget build(BuildContext context) {
     final items = _items;
     return CupertinoPageScaffold(
-      backgroundColor: WolodyColors.background,
+      backgroundColor: WolodyColors.of(context).background,
       child: SafeArea(
         bottom: false,
         child: Column(
@@ -126,24 +126,24 @@ class _DeletedRecordsScreenState extends State<DeletedRecordsScreen> {
                         kBottomNavSpace,
                       ),
                       children: [
-                        const Text(
+                        Text(
                           '삭제한 기록은 30일 동안 보관된 뒤 영구 삭제돼요.\n'
                           '기록을 누르면 복구하거나 바로 지울 수 있어요.',
                           style: TextStyle(
                             fontSize: 12,
                             height: 1.5,
-                            color: WolodyColors.textSecondary,
+                            color: WolodyColors.of(context).textSecondary,
                           ),
                         ),
                         const SizedBox(height: 20),
                         if (items.isEmpty)
-                          const SizedBox(
+                          SizedBox(
                             height: 320,
                             child: Center(
                               child: Text(
                                 '삭제된 기록이 없어요.',
                                 style: TextStyle(
-                                  color: WolodyColors.textSecondary,
+                                  color: WolodyColors.of(context).textSecondary,
                                   fontSize: 15,
                                 ),
                               ),
@@ -158,10 +158,10 @@ class _DeletedRecordsScreenState extends State<DeletedRecordsScreen> {
                               ),
                               child: Text(
                                 '${deleted.daysLeft(DateTime.now())}일 남음',
-                                style: const TextStyle(
+                                style: TextStyle(
                                   fontSize: 12,
                                   fontWeight: FontWeight.w600,
-                                  color: WolodyColors.textSecondary,
+                                  color: WolodyColors.of(context).textSecondary,
                                 ),
                               ),
                             ),
