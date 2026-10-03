@@ -9,6 +9,7 @@ import '../services/haptics.dart';
 import '../theme.dart';
 import '../widgets/wolody_toast.dart';
 import '../widgets/pressable.dart';
+import '../widgets/wolody_dialog.dart';
 
 /// Figma "로그인" 화면. 구글·카카오 인앱 로그인 버튼을 보여준다.
 ///
@@ -141,19 +142,18 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
 
   void _showError(String message) {
     Haptics.error();
-    showCupertinoDialog<void>(
+    showWolodyDialog<void>(
       context: context,
-      builder: (dialogContext) => CupertinoAlertDialog(
-        title: const Text('로그인하지 못했어요'),
-        content: Text(message),
-        actions: [
-          CupertinoDialogAction(
-            isDefaultAction: true,
-            onPressed: () => Navigator.pop(dialogContext),
-            child: const Text('확인'),
-          ),
-        ],
-      ),
+      face: 10,
+      title: '로그인하지 못했어요',
+      message: message,
+      actions: const [
+        WolodyAction(
+          label: '확인',
+          value: null,
+          style: WolodyActionStyle.primary,
+        ),
+      ],
     );
   }
 

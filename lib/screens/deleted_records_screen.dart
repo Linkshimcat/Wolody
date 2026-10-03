@@ -6,6 +6,7 @@ import '../services/trash_storage.dart';
 import '../theme.dart';
 import '../widgets/mood_card.dart';
 import '../widgets/wolody_top_bar.dart';
+import '../widgets/wolody_dialog.dart';
 
 /// 설정 → 삭제된 기록. 지운 기록을 30일 동안 보관했다가 복구하거나 영구 삭제한다.
 class DeletedRecordsScreen extends StatefulWidget {
@@ -31,57 +32,50 @@ class _DeletedRecordsScreenState extends State<DeletedRecordsScreen> {
 
   void _showActions(DeletedEntry deleted) {
     Haptics.light();
-    showCupertinoModalPopup<void>(
+    showWolodySheet<bool>(
       context: context,
-      builder: (sheetContext) => CupertinoActionSheet(
-        actions: [
-          CupertinoActionSheetAction(
-            onPressed: () async {
-              Navigator.pop(sheetContext);
-              Haptics.medium();
-              await restoreMoodEntry(deleted);
-              await _load();
-            },
-            child: const Text('복구하기'),
-          ),
-          CupertinoActionSheetAction(
-            isDestructiveAction: true,
-            onPressed: () async {
-              Navigator.pop(sheetContext);
-              Haptics.heavy();
-              await TrashStorage.deleteForever(deleted);
-              await _load();
-            },
-            child: const Text('영구 삭제'),
-          ),
-        ],
-        cancelButton: CupertinoActionSheetAction(
-          onPressed: () => Navigator.pop(sheetContext),
-          child: const Text('취소'),
+      title: '이 기록을 어떻게 할까요?',
+      actions: const [
+        WolodyAction(
+          label: '복구하기',
+          value: true,
+          icon: CupertinoIcons.arrow_uturn_left,
         ),
-      ),
-    );
+        WolodyAction(
+          label: '영구 삭제',
+          value: false,
+          style: WolodyActionStyle.destructive,
+          icon: CupertinoIcons.trash_fill,
+        ),
+      ],
+    ).then((restore) async {
+      if (restore == null) return;
+      if (restore) {
+        Haptics.medium();
+        await restoreMoodEntry(deleted);
+      } else {
+        Haptics.heavy();
+        await TrashStorage.deleteForever(deleted);
+      }
+      await _load();
+    });
   }
 
   Future<void> _confirmClear() async {
     Haptics.light();
-    final confirmed = await showCupertinoDialog<bool>(
+    final confirmed = await showWolodyDialog<bool>(
       context: context,
-      builder: (dialogContext) => CupertinoAlertDialog(
-        title: const Text('삭제된 기록을 모두 지울까요?'),
-        content: const Text('사진까지 영구 삭제되고 되돌릴 수 없어요.'),
-        actions: [
-          CupertinoDialogAction(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('취소'),
-          ),
-          CupertinoDialogAction(
-            isDestructiveAction: true,
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('모두 삭제'),
-          ),
-        ],
-      ),
+      face: 11,
+      title: '삭제된 기록을 모두 지울까요?',
+      message: '사진까지 영구 삭제되고 되돌릴 수 없어요.',
+      actions: const [
+        WolodyAction(label: '취소', value: false),
+        WolodyAction(
+          label: '모두 삭제',
+          value: true,
+          style: WolodyActionStyle.destructive,
+        ),
+      ],
     );
     if (confirmed != true) return;
     Haptics.heavy();

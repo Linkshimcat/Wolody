@@ -17,6 +17,7 @@ import '../widgets/pressable.dart';
 import '../widgets/primary_action_button.dart';
 import '../widgets/wooldy_mood_portrait.dart';
 import '../widgets/wolody_icon.dart';
+import '../widgets/wolody_dialog.dart';
 
 class MoodEntryFlowScreen extends StatefulWidget {
   final MoodEntry? initial;
@@ -85,32 +86,23 @@ class _MoodEntryFlowScreenState extends State<MoodEntryFlowScreen> {
 
   void _showImageOptions() {
     Haptics.light();
-    showCupertinoModalPopup<void>(
+    showWolodySheet<ImageSource>(
       context: context,
-      builder: (sheetContext) => CupertinoActionSheet(
-        actions: [
-          CupertinoActionSheetAction(
-            onPressed: () {
-              Navigator.pop(sheetContext);
-              _pickImage(ImageSource.camera);
-            },
-            child: const Text('사진 촬영'),
-          ),
-          CupertinoActionSheetAction(
-            onPressed: () {
-              Navigator.pop(sheetContext);
-              _pickImage(ImageSource.gallery);
-            },
-            child: const Text('앨범에서 선택'),
-          ),
-        ],
-        cancelButton: CupertinoActionSheetAction(
-          isDestructiveAction: true,
-          onPressed: () => Navigator.pop(sheetContext),
-          child: const Text('취소'),
+      actions: const [
+        WolodyAction(
+          label: '사진 촬영',
+          value: ImageSource.camera,
+          icon: CupertinoIcons.camera_fill,
         ),
-      ),
-    );
+        WolodyAction(
+          label: '앨범에서 선택',
+          value: ImageSource.gallery,
+          icon: CupertinoIcons.photo_fill_on_rectangle_fill,
+        ),
+      ],
+    ).then((source) {
+      if (source != null) _pickImage(source);
+    });
   }
 
   void _continue() {

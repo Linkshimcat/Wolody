@@ -9,6 +9,7 @@ import '../widgets/glass_back_button.dart';
 import '../widgets/primary_action_button.dart';
 import '../widgets/profile_avatar.dart';
 import '../widgets/wolody_icon.dart';
+import '../widgets/wolody_dialog.dart';
 
 /// 마이 페이지에서 프로필 사진과 닉네임을 바꾸는 화면.
 class ProfileEditScreen extends StatefulWidget {
@@ -73,44 +74,42 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
   void _showPhotoOptions() {
     Haptics.light();
     FocusScope.of(context).unfocus();
-    showCupertinoModalPopup<void>(
+    showWolodySheet<String>(
       context: context,
-      builder: (sheetContext) => CupertinoActionSheet(
-        actions: [
-          CupertinoActionSheetAction(
-            onPressed: () {
-              Navigator.pop(sheetContext);
-              _pickImage(ImageSource.camera);
-            },
-            child: const Text('사진 촬영'),
-          ),
-          CupertinoActionSheetAction(
-            onPressed: () {
-              Navigator.pop(sheetContext);
-              _pickImage(ImageSource.gallery);
-            },
-            child: const Text('앨범에서 선택'),
-          ),
-          if (_hasPhoto)
-            CupertinoActionSheetAction(
-              isDestructiveAction: true,
-              onPressed: () {
-                Navigator.pop(sheetContext);
-                setState(() {
-                  _pickedPath = null;
-                  _removePhoto = true;
-                });
-              },
-              child: const Text('기본 이미지로 변경'),
-            ),
-        ],
-        cancelButton: CupertinoActionSheetAction(
-          isDestructiveAction: true,
-          onPressed: () => Navigator.pop(sheetContext),
-          child: const Text('취소'),
+      title: '프로필 사진',
+      actions: [
+        const WolodyAction(
+          label: '사진 촬영',
+          value: 'camera',
+          icon: CupertinoIcons.camera_fill,
         ),
-      ),
-    );
+        const WolodyAction(
+          label: '앨범에서 선택',
+          value: 'gallery',
+          icon: CupertinoIcons.photo_fill_on_rectangle_fill,
+        ),
+        if (_hasPhoto)
+          const WolodyAction(
+            label: '기본 이미지로 변경',
+            value: 'reset',
+            style: WolodyActionStyle.destructive,
+            icon: CupertinoIcons.arrow_counterclockwise,
+          ),
+      ],
+    ).then((choice) {
+      if (!mounted) return;
+      switch (choice) {
+        case 'camera':
+          _pickImage(ImageSource.camera);
+        case 'gallery':
+          _pickImage(ImageSource.gallery);
+        case 'reset':
+          setState(() {
+            _pickedPath = null;
+            _removePhoto = true;
+          });
+      }
+    });
   }
 
   Future<void> _save() async {

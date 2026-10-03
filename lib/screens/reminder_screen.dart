@@ -21,6 +21,7 @@ import 'account_screen.dart';
 import 'deleted_records_screen.dart';
 import 'licenses_screen.dart';
 import '../widgets/pressable.dart';
+import '../widgets/wolody_dialog.dart';
 
 class ReminderScreen extends StatefulWidget {
   const ReminderScreen({super.key});
@@ -91,19 +92,18 @@ class _ReminderScreenState extends State<ReminderScreen> {
 
   Future<void> _showPermissionNeeded() async {
     if (!mounted) return;
-    await showCupertinoDialog<void>(
+    await showWolodyDialog<void>(
       context: context,
-      builder: (context) => CupertinoAlertDialog(
-        title: const Text('알림 권한이 필요해요'),
-        content: const Text('설정 앱에서 이 앱의 알림을 허용해주세요.'),
-        actions: [
-          CupertinoDialogAction(
-            isDefaultAction: true,
-            onPressed: () => Navigator.pop(context),
-            child: const Text('확인'),
-          ),
-        ],
-      ),
+      face: 6,
+      title: '알림 권한이 필요해요',
+      message: '설정 앱에서 이 앱의 알림을 허용해주세요.',
+      actions: const [
+        WolodyAction(
+          label: '확인',
+          value: null,
+          style: WolodyActionStyle.primary,
+        ),
+      ],
     );
   }
 
@@ -135,26 +135,21 @@ class _ReminderScreenState extends State<ReminderScreen> {
     if (await LiveActivityService.androidSdkInt() < 36) return;
     if (await LiveActivityService.canPromote()) return;
     if (!mounted) return;
-    final open = await showCupertinoDialog<bool>(
+    final open = await showWolodyDialog<bool>(
       context: context,
-      builder: (dialogContext) => CupertinoAlertDialog(
-        title: const Text('Live Update가 꺼져 있어요'),
-        content: const Text(
+      face: 2,
+      title: 'Live Update가 꺼져 있어요',
+      message:
           '지금은 일반 알림으로만 보여요. 설정에서 켜면 상태 바와 잠금화면에 '
           '오늘의 마음이 계속 표시돼요.',
+      actions: const [
+        WolodyAction(label: '닫기', value: false),
+        WolodyAction(
+          label: '설정 열기',
+          value: true,
+          style: WolodyActionStyle.primary,
         ),
-        actions: [
-          CupertinoDialogAction(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('닫기'),
-          ),
-          CupertinoDialogAction(
-            isDefaultAction: true,
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('설정 열기'),
-          ),
-        ],
-      ),
+      ],
     );
     if (open == true) await LiveActivityService.openPromotionSettings();
   }

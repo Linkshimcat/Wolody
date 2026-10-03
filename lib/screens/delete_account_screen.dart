@@ -10,6 +10,7 @@ import '../theme.dart';
 import '../widgets/primary_action_button.dart';
 import '../widgets/wolody_top_bar.dart';
 import '../widgets/pressable.dart';
+import '../widgets/wolody_dialog.dart';
 
 /// 계정 정보 → 계정 탈퇴.
 ///
@@ -34,23 +35,19 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
 
   Future<void> _delete() async {
     Haptics.light();
-    final sure = await showCupertinoDialog<bool>(
+    final sure = await showWolodyDialog<bool>(
       context: context,
-      builder: (dialogContext) => CupertinoAlertDialog(
-        title: const Text('정말 탈퇴할까요?'),
-        content: const Text('탈퇴하면 기록과 사진을 다시 되돌릴 수 없어요.'),
-        actions: [
-          CupertinoDialogAction(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('취소'),
-          ),
-          CupertinoDialogAction(
-            isDestructiveAction: true,
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('탈퇴하기'),
-          ),
-        ],
-      ),
+      face: 5,
+      title: '정말 탈퇴할까요?',
+      message: '탈퇴하면 기록과 사진을 다시 되돌릴 수 없어요.',
+      actions: const [
+        WolodyAction(label: '취소', value: false),
+        WolodyAction(
+          label: '탈퇴하기',
+          value: true,
+          style: WolodyActionStyle.destructive,
+        ),
+      ],
     );
     if (sure != true || !mounted) return;
 
@@ -62,19 +59,18 @@ class _DeleteAccountScreenState extends State<DeleteAccountScreen> {
       if (!mounted) return;
       setState(() => _deleting = false);
       Haptics.error();
-      await showCupertinoDialog<void>(
+      await showWolodyDialog<void>(
         context: context,
-        builder: (dialogContext) => CupertinoAlertDialog(
-          title: const Text('탈퇴하지 못했어요'),
-          content: Text(e.message),
-          actions: [
-            CupertinoDialogAction(
-              isDefaultAction: true,
-              onPressed: () => Navigator.pop(dialogContext),
-              child: const Text('확인'),
-            ),
-          ],
-        ),
+        face: 10,
+        title: '탈퇴하지 못했어요',
+        message: e.message,
+        actions: const [
+          WolodyAction(
+            label: '확인',
+            value: null,
+            style: WolodyActionStyle.primary,
+          ),
+        ],
       );
       return;
     }

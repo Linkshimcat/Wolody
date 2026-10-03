@@ -14,6 +14,7 @@ import '../widgets/wolody_top_bar.dart';
 import 'delete_account_screen.dart';
 import 'profile_edit_screen.dart';
 import '../widgets/pressable.dart';
+import '../widgets/wolody_dialog.dart';
 
 /// 설정 → 계정 정보. 로그인 전에는 프로필과 이 기기에 저장된 데이터를 관리한다.
 class AccountScreen extends StatefulWidget {
@@ -51,26 +52,21 @@ class _AccountScreenState extends State<AccountScreen> {
 
   Future<void> _confirmSignOut() async {
     Haptics.light();
-    final confirmed = await showCupertinoDialog<bool>(
+    final confirmed = await showWolodyDialog<bool>(
       context: context,
-      builder: (dialogContext) => CupertinoAlertDialog(
-        title: const Text('로그아웃할까요?'),
-        content: const Text(
+      face: 7,
+      title: '로그아웃할까요?',
+      message:
           '기록은 계정에 그대로 남아 다시 로그인하면 돌아와요.\n'
           '이 기기에 있던 사본과 삭제된 기록은 비워져요.',
+      actions: const [
+        WolodyAction(label: '취소', value: false),
+        WolodyAction(
+          label: '로그아웃',
+          value: true,
+          style: WolodyActionStyle.destructive,
         ),
-        actions: [
-          CupertinoDialogAction(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('취소'),
-          ),
-          CupertinoDialogAction(
-            isDestructiveAction: true,
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('로그아웃'),
-          ),
-        ],
-      ),
+      ],
     );
     if (confirmed != true) return;
     Haptics.medium();
@@ -237,26 +233,21 @@ class _AccountScreenState extends State<AccountScreen> {
 
   Future<void> _confirmDeleteAll() async {
     Haptics.light();
-    final confirmed = await showCupertinoDialog<bool>(
+    final confirmed = await showWolodyDialog<bool>(
       context: context,
-      builder: (dialogContext) => CupertinoAlertDialog(
-        title: const Text('모든 기록을 삭제할까요?'),
-        content: const Text(
+      face: 11,
+      title: '모든 기록을 삭제할까요?',
+      message:
           '기록과 사진, 삭제된 기록까지 모두 지워지고 되돌릴 수 없어요.\n'
           '프로필과 알림 설정은 그대로 남아요.',
+      actions: const [
+        WolodyAction(label: '취소', value: false),
+        WolodyAction(
+          label: '모두 삭제',
+          value: true,
+          style: WolodyActionStyle.destructive,
         ),
-        actions: [
-          CupertinoDialogAction(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: const Text('취소'),
-          ),
-          CupertinoDialogAction(
-            isDestructiveAction: true,
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: const Text('모두 삭제'),
-          ),
-        ],
-      ),
+      ],
     );
     if (confirmed != true) return;
     Haptics.heavy();
