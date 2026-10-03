@@ -3,10 +3,14 @@ import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
 
+import '../services/auth_service.dart';
 import '../services/haptics.dart';
+import '../models/mood.dart';
 import '../services/mood_editor.dart';
+import '../services/mood_storage.dart';
 import '../services/platform_info.dart';
 import '../theme.dart';
+import '../widgets/celebration_burst.dart';
 import '../widgets/glass_surface.dart';
 import '../widgets/native_tab_bar.dart';
 import '../widgets/profile_avatar.dart';
@@ -36,12 +40,17 @@ class _RootScreenState extends State<RootScreen> {
   // 마이 탭은 자체 Navigator를 둔다. 설정·리캡 같은 하위 화면을 탭 바를 남긴 채
   // push해서 iOS 가장자리 스와이프로 뒤로 갈 수 있게 한다.
   final _myTabNavigator = GlobalKey<NavigatorState>();
-  bool _showSavedToast = false;
+  bool _showToast = false;
+  String _toastMessage = '';
+  IconData _toastIcon = CupertinoIcons.checkmark_circle_fill;
   bool _barDragging = false;
   bool _barPressed = false;
   // iOS 26+에서는 시스템 UITabBar를 그대로 쓴다. null이면 아직 판별 전.
   bool? _useNativeBar;
   Timer? _toastTimer;
+  // 기록할 때마다 하나씩 늘려 축하 파티클을 터뜨린다.
+  int _celebration = 0;
+  List<Color> _celebrationColors = const [];
 
   @override
   void initState() {
@@ -49,12 +58,68 @@ class _RootScreenState extends State<RootScreen> {
     PlatformInfo.supportsNativeLiquidGlass.then((native) {
       if (mounted) setState(() => _useNativeBar = native);
     });
+    MoodEvents.recorded.addListener(_onRecorded);
+    MoodEvents.cheer.addListener(_onCheer);
+    // 첫 가입 설정을 마치고 들어왔으면 환영 인사를 한 번 띄운다.
+    final notice = AuthService.pendingNotice;
+    if (notice != null) {
+      AuthService.pendingNotice = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _toast(notice, CupertinoIcons.heart_fill);
+      });
+    }
+  }
+
+  void _toast(String message, IconData icon) {
+    setState(() {
+      _toastMessage = message;
+      _toastIcon = icon;
+      _showToast = true;
+    });
+    _toastTimer?.cancel();
+    _toastTimer = Timer(const Duration(milliseconds: 2500), () {
+      if (mounted) setState(() => _showToast = false);
+    });
   }
 
   @override
   void dispose() {
+    MoodEvents.recorded.removeListener(_onRecorded);
+    MoodEvents.cheer.removeListener(_onCheer);
     _toastTimer?.cancel();
     super.dispose();
+  }
+
+  /// 완료 배너를 누르면 오늘 고른 감정 색으로 파티클만 다시 터뜨린다.
+  void _onCheer() {
+    if (!mounted) return;
+    final today = DateTime.now();
+    final latest = MoodStorage.cache.value.where(
+      (e) =>
+          e.date.year == today.year &&
+          e.date.month == today.month &&
+          e.date.day == today.day,
+    );
+    final colors = latest.isEmpty
+        ? const <Color>[]
+        : latest.first.emojis.map((e) => Mood.fromEmoji(e).color).toList();
+    setState(() {
+      _celebration++;
+      _celebrationColors = [...colors, WolodyColors.brandBlue];
+    });
+  }
+
+  /// 어디서 기록했든(탭 바 [+], 홈의 기록하기 버튼) 토스트와 축하를 보여준다.
+  void _onRecorded() {
+    final entry = MoodEvents.recorded.value;
+    if (!mounted || entry == null) return;
+    final colors = entry.emojis.map((e) => Mood.fromEmoji(e).color).toList();
+    Haptics.success();
+    setState(() {
+      _celebration++;
+      _celebrationColors = [...colors, WolodyColors.brandBlue];
+    });
+    _toast('오늘의 기록을 완료 했어요!', CupertinoIcons.checkmark_circle_fill);
   }
 
   Widget get _currentScreen {
@@ -132,15 +197,11 @@ class _RootScreenState extends State<RootScreen> {
     Haptics.light();
     if (!await createMoodEntry(context)) return;
     // 기록하면 목록으로 돌아가 방금 쓴 카드를 보여준다.
+    // 토스트와 축하는 MoodEvents.recorded를 들은 _onRecorded가 맡는다.
     setState(() {
       _index = 0;
       _barDragPosition = 0;
       _refreshToken++;
-      _showSavedToast = true;
-    });
-    _toastTimer?.cancel();
-    _toastTimer = Timer(const Duration(seconds: 2), () {
-      if (mounted) setState(() => _showSavedToast = false);
     });
   }
 
@@ -154,6 +215,16 @@ class _RootScreenState extends State<RootScreen> {
     return Stack(
       children: [
         Positioned.fill(child: _currentScreen),
+        // 토스트 아래에서 감정 색 하트·별이 터져 내린다.
+        Positioned.fill(
+          top: MediaQuery.paddingOf(context).top + 60,
+          child: IgnorePointer(
+            child: CelebrationBurst(
+              trigger: _celebration,
+              colors: _celebrationColors,
+            ),
+          ),
+        ),
         // 토스트는 항상 자리에 두고, 보일 때 위에서 스르륵 내려오고
         // 사라질 때 다시 위로 빠지며 흐려진다.
         Positioned(
@@ -162,9 +233,9 @@ class _RootScreenState extends State<RootScreen> {
           right: 58,
           child: IgnorePointer(
             child: WolodyToast(
-              visible: _showSavedToast && !coveredByModal,
-              icon: CupertinoIcons.checkmark_circle_fill,
-              message: '오늘의 기록을 완료 했어요!',
+              visible: _showToast && !coveredByModal,
+              icon: _toastIcon,
+              message: _toastMessage,
             ),
           ),
         ),

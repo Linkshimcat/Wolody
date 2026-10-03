@@ -1,12 +1,15 @@
 import 'dart:io';
 
 import 'package:flutter/cupertino.dart';
+import 'package:flutter/foundation.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../services/haptics.dart';
 import '../models/reminder_settings.dart';
 import '../services/appearance_settings.dart';
+import '../services/auth_service.dart';
+import '../services/onboarding.dart';
 import '../services/trash_storage.dart';
 import '../services/live_activity_service.dart';
 import '../services/notification_service.dart';
@@ -17,6 +20,7 @@ import '../widgets/wolody_icon.dart';
 import 'account_screen.dart';
 import 'deleted_records_screen.dart';
 import 'licenses_screen.dart';
+import '../widgets/pressable.dart';
 
 class ReminderScreen extends StatefulWidget {
   const ReminderScreen({super.key});
@@ -155,6 +159,13 @@ class _ReminderScreenState extends State<ReminderScreen> {
     if (open == true) await LiveActivityService.openPromotionSettings();
   }
 
+  /// 로그인 중이면 첫 가입 설정이 바로 나오고, 둘러보기 중이면 소개부터 나온다.
+  void _replayOnboarding() {
+    AuthService.setGuest(false);
+    Onboarding.reset();
+    Navigator.of(context, rootNavigator: true).popUntil((r) => r.isFirst);
+  }
+
   /// 마이 탭 Navigator에 쌓아 탭 바를 남기고 가장자리 스와이프로 돌아오게 한다.
   void _push(Widget screen) {
     Navigator.of(
@@ -205,35 +216,37 @@ class _ReminderScreenState extends State<ReminderScreen> {
     required bool selected,
   }) {
     return Expanded(
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: () {
-          Haptics.selection();
-          _update(_settings!.copyWith(mode: mode));
-        },
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          height: 44,
-          decoration: BoxDecoration(
-            color: selected
-                ? WolodyColors.brandBlue
-                : WolodyColors.of(context).chipIdle,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              WolodyIcon(icon, size: 17, color: _onChip(selected)),
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                  color: _onChip(selected),
+      child: Pressable(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            Haptics.selection();
+            _update(_settings!.copyWith(mode: mode));
+          },
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            height: 44,
+            decoration: BoxDecoration(
+              color: selected
+                  ? WolodyColors.brandBlue
+                  : WolodyColors.of(context).chipIdle,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                WolodyIcon(icon, size: 17, color: _onChip(selected)),
+                const SizedBox(width: 8),
+                Text(
+                  label,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                    color: _onChip(selected),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -384,25 +397,27 @@ class _ReminderScreenState extends State<ReminderScreen> {
     required VoidCallback onTap,
   }) {
     return Expanded(
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          height: 36,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: selected
-                ? WolodyColors.brandBlue
-                : WolodyColors.of(context).chipIdle,
-            borderRadius: BorderRadius.circular(10),
-          ),
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: _onChip(selected),
+      child: Pressable(
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 150),
+            height: 36,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: selected
+                  ? WolodyColors.brandBlue
+                  : WolodyColors.of(context).chipIdle,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: _onChip(selected),
+              ),
             ),
           ),
         ),
@@ -692,56 +707,58 @@ class _ReminderScreenState extends State<ReminderScreen> {
     required VoidCallback onTap,
     String? detail,
   }) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () {
-        Haptics.light();
-        onTap();
-      },
-      child: Container(
-        height: 50,
-        padding: const EdgeInsets.symmetric(horizontal: 18),
-        decoration: BoxDecoration(
-          color: WolodyColors.of(context).surfaceRaised,
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: WolodyColors.of(context).cardShadow,
-        ),
-        child: Row(
-          children: [
-            if (icon != null)
-              WolodyIcon(
-                icon,
-                size: 18,
-                color: WolodyColors.of(context).textPrimary,
-              )
-            else
-              Icon(
-                iconData,
-                size: 19,
-                color: WolodyColors.of(context).textPrimary,
-              ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+    return Pressable(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () {
+          Haptics.light();
+          onTap();
+        },
+        child: Container(
+          height: 50,
+          padding: const EdgeInsets.symmetric(horizontal: 18),
+          decoration: BoxDecoration(
+            color: WolodyColors.of(context).surfaceRaised,
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: WolodyColors.of(context).cardShadow,
+          ),
+          child: Row(
+            children: [
+              if (icon != null)
+                WolodyIcon(
+                  icon,
+                  size: 18,
+                  color: WolodyColors.of(context).textPrimary,
+                )
+              else
+                Icon(
+                  iconData,
+                  size: 19,
+                  color: WolodyColors.of(context).textPrimary,
+                ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
-            ),
-            if (detail != null) ...[
-              Text(
-                detail,
-                style: TextStyle(
-                  fontSize: 13,
-                  color: WolodyColors.of(context).textSecondary,
+              if (detail != null) ...[
+                Text(
+                  detail,
+                  style: TextStyle(
+                    fontSize: 13,
+                    color: WolodyColors.of(context).textSecondary,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 6),
+                const SizedBox(width: 6),
+              ],
+              const Icon(CupertinoIcons.chevron_right, size: 20),
             ],
-            const Icon(CupertinoIcons.chevron_right, size: 20),
-          ],
+          ),
         ),
       ),
     );
@@ -822,6 +839,15 @@ class _ReminderScreenState extends State<ReminderScreen> {
                     title: '오픈소스 라이선스',
                     onTap: () => _push(const LicensesScreen()),
                   ),
+                  // 재설치하지 않고 소개·첫 가입 설정을 다시 보기 위한 개발용 메뉴.
+                  if (kDebugMode) ...[
+                    const SizedBox(height: 12),
+                    _actionRow(
+                      iconData: CupertinoIcons.arrow_counterclockwise,
+                      title: '온보딩 다시 보기 (개발용)',
+                      onTap: _replayOnboarding,
+                    ),
+                  ],
                 ],
               ),
             ),

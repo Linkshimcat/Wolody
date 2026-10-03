@@ -12,6 +12,8 @@ import '../services/photo_storage.dart';
 import '../theme.dart';
 import '../widgets/cover_flow_item.dart';
 import '../widgets/glass_back_button.dart';
+import '../widgets/mood_card.dart';
+import '../widgets/pressable.dart';
 import '../widgets/primary_action_button.dart';
 import '../widgets/wooldy_mood_portrait.dart';
 import '../widgets/wolody_icon.dart';
@@ -30,6 +32,9 @@ class _MoodEntryFlowScreenState extends State<MoodEntryFlowScreen> {
   final _noteController = TextEditingController();
   final _selected = <String>{};
   int _focusedIndex = 4;
+
+  /// 수정을 시작할 때 가운데 있던 감정. 이 카드에만 Hero를 둔다.
+  late final int _initialIndex;
   int _step = 0;
   String? _imagePath;
 
@@ -47,6 +52,7 @@ class _MoodEntryFlowScreenState extends State<MoodEntryFlowScreen> {
           : PhotoStorage.pathFor(initial.imageFileName!);
       _focusedIndex = Mood.all.indexOf(Mood.fromEmoji(initial.emojis.first));
     }
+    _initialIndex = _focusedIndex;
     _pageController = PageController(
       initialPage: _focusedIndex,
       viewportFraction: .59,
@@ -238,70 +244,71 @@ class _MoodEntryFlowScreenState extends State<MoodEntryFlowScreen> {
                       child: Center(
                         child: GestureDetector(
                           onTap: () => _toggleMood(mood),
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 180),
-                            width: 198,
-                            height: 360,
-                            decoration: BoxDecoration(
-                              color: WolodyColors.of(context).selectorSurface,
-                              borderRadius: BorderRadius.circular(28),
-                              boxShadow: WolodyColors.of(context).cardShadow,
-                              border: Border.all(
-                                color: selected
-                                    ? mood.color
-                                    : const Color(0x00000000),
-                                width: 2,
+                          child: Pressable(
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 180),
+                              width: 198,
+                              height: 360,
+                              decoration: BoxDecoration(
+                                color: WolodyColors.of(context).selectorSurface,
+                                borderRadius: BorderRadius.circular(28),
+                                boxShadow: WolodyColors.of(context).cardShadow,
+                                border: Border.all(
+                                  color: selected
+                                      ? mood.color
+                                      : const Color(0x00000000),
+                                  width: 2,
+                                ),
                               ),
-                            ),
-                            child: Stack(
-                              alignment: Alignment.center,
-                              children: [
-                                Positioned(
-                                  top: 82,
-                                  child: WooldyMoodPortrait(
-                                    faceIndex: mood.faceIndex,
-                                    size: 128,
-                                  ),
-                                ),
-                                Positioned(
-                                  bottom: 35,
-                                  child: Text(
-                                    mood.label,
-                                    style: TextStyle(
-                                      fontFamily: 'BM Jua',
-                                      // 파스텔 감정 색은 흰 카드 위 글자로는 흐려서
-                                      // 라이트에서는 테두리·체크로만 강조한다.
-                                      color:
-                                          selected &&
-                                              !WolodyColors.of(context).isLight
-                                          ? mood.color
-                                          : WolodyColors.of(
-                                              context,
-                                            ).textPrimary,
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.w700,
-                                    ),
-                                  ),
-                                ),
-                                if (selected)
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
                                   Positioned(
-                                    top: 14,
-                                    right: 14,
-                                    child: Container(
-                                      width: 28,
-                                      height: 28,
-                                      decoration: BoxDecoration(
-                                        color: mood.color,
-                                        shape: BoxShape.circle,
-                                      ),
-                                      child: const Icon(
-                                        CupertinoIcons.checkmark,
-                                        size: 16,
-                                        color: Color(0xFF161E2A),
+                                    top: 82,
+                                    child: _face(mood, index),
+                                  ),
+                                  Positioned(
+                                    bottom: 35,
+                                    child: Text(
+                                      mood.label,
+                                      style: TextStyle(
+                                        fontFamily: 'BM Jua',
+                                        // 파스텔 감정 색은 흰 카드 위 글자로는 흐려서
+                                        // 라이트에서는 테두리·체크로만 강조한다.
+                                        color:
+                                            selected &&
+                                                !WolodyColors.of(
+                                                  context,
+                                                ).isLight
+                                            ? mood.color
+                                            : WolodyColors.of(
+                                                context,
+                                              ).textPrimary,
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.w700,
                                       ),
                                     ),
                                   ),
-                              ],
+                                  if (selected)
+                                    Positioned(
+                                      top: 14,
+                                      right: 14,
+                                      child: Container(
+                                        width: 28,
+                                        height: 28,
+                                        decoration: BoxDecoration(
+                                          color: mood.color,
+                                          shape: BoxShape.circle,
+                                        ),
+                                        child: const Icon(
+                                          CupertinoIcons.checkmark,
+                                          size: 16,
+                                          color: Color(0xFF161E2A),
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              ),
                             ),
                           ),
                         ),
@@ -315,6 +322,14 @@ class _MoodEntryFlowScreenState extends State<MoodEntryFlowScreen> {
         ),
       ],
     );
+  }
+
+  /// 수정할 때 처음 가운데 오는 카드의 얼굴은 홈 카드의 작은 얼굴에서 이어진다.
+  Widget _face(Mood mood, int index) {
+    final face = WooldyMoodPortrait(faceIndex: mood.faceIndex, size: 128);
+    final initial = widget.initial;
+    if (initial == null || index != _initialIndex) return face;
+    return Hero(tag: MoodCard.faceHeroTag(initial), child: face);
   }
 
   Widget _buildMemoEntry() {

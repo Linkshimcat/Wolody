@@ -11,6 +11,7 @@ import '../widgets/mood_card.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/wolody_icon.dart';
 import '../widgets/wooldy_mood_portrait.dart';
+import '../widgets/pressable.dart';
 
 class CalendarScreen extends StatefulWidget {
   const CalendarScreen({super.key});
@@ -25,6 +26,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   final _storage = MoodStorage();
   Map<DateTime, List<MoodEntry>> _byDay = {};
   late DateTime _month;
+  int _slideDirection = 1;
   late DateTime _selected;
   bool _loading = true;
   // "M월 yyyy ›"를 누르면 달력 격자 자리에 년·월·일 휠이 펼쳐진다.
@@ -97,8 +99,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final day = _dateOnly(value);
     setState(() {
       _selected = day;
-      _month = DateTime(day.year, day.month);
+      _setMonth(DateTime(day.year, day.month));
     });
+  }
+
+  /// 달을 바꾸면서, 새 달이 어느 쪽에서 미끄러져 들어올지 정한다.
+  /// 다음 달(미래)이면 오른쪽에서, 이전 달이면 왼쪽에서 들어온다.
+  void _setMonth(DateTime month) {
+    if (month == _month) return;
+    _slideDirection = month.isAfter(_month) ? 1 : -1;
+    _month = month;
   }
 
   /// 휠에서 고를 수 있는 가장 이른 연도. 가장 오래된 기록의 해까지만 보여준다.
@@ -114,14 +124,59 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final today = _dateOnly(DateTime.now());
     setState(() {
       _selected = today;
-      _month = DateTime(today.year, today.month);
+      _setMonth(DateTime(today.year, today.month));
       _pickingDate = false;
     });
   }
 
   void _changeMonth(int delta) {
     Haptics.light();
-    setState(() => _month = DateTime(_month.year, _month.month + delta));
+    setState(() => _setMonth(DateTime(_month.year, _month.month + delta)));
+  }
+
+  /// 날짜 격자. 좌우로 쓸어 달을 넘기고, 달이 바뀌면 그 방향으로 미끄러진다.
+  Widget _buildSwipeableGrid(BuildContext context) {
+    final reduceMotion = MediaQuery.disableAnimationsOf(context);
+    return GestureDetector(
+      behavior: HitTestBehavior.translucent,
+      onHorizontalDragEnd: (details) {
+        final velocity = details.primaryVelocity ?? 0;
+        if (velocity.abs() < 300) return;
+        // 왼쪽으로 쓸면 다음 달, 오른쪽으로 쓸면 이전 달.
+        _changeMonth(velocity < 0 ? 1 : -1);
+      },
+      child: ClipRect(
+        child: AnimatedSwitcher(
+          duration: reduceMotion
+              ? Duration.zero
+              : const Duration(milliseconds: 260),
+          switchInCurve: Curves.easeOutCubic,
+          switchOutCurve: Curves.easeInCubic,
+          layoutBuilder: (current, previous) => Stack(
+            alignment: Alignment.topCenter,
+            children: [...previous, ?current],
+          ),
+          transitionBuilder: (child, animation) {
+            final incoming = child.key == ValueKey(_month);
+            final shift = 0.25 * _slideDirection * (incoming ? 1 : -1);
+            return FadeTransition(
+              opacity: animation,
+              child: SlideTransition(
+                position: Tween(
+                  begin: Offset(shift, 0),
+                  end: Offset.zero,
+                ).animate(animation),
+                child: child,
+              ),
+            );
+          },
+          child: KeyedSubtree(
+            key: ValueKey(_month),
+            child: _buildGrid(context),
+          ),
+        ),
+      ),
+    );
   }
 
   @override
@@ -164,7 +219,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                           key: const ValueKey('grid'),
                           children: [
                             _buildWeekdayLabels(context),
-                            _buildGrid(context),
+                            _buildSwipeableGrid(context),
                           ],
                         ),
                 ),
@@ -283,21 +338,24 @@ class _CalendarScreenState extends State<CalendarScreen> {
         _month == DateTime(today.year, today.month);
     return Padding(
       padding: const EdgeInsets.only(right: 4),
-      child: CupertinoButton(
-        padding: const EdgeInsets.symmetric(horizontal: 12),
-        minimumSize: const Size(0, 30),
-        color: surface,
-        disabledColor: surface,
-        borderRadius: BorderRadius.circular(15),
-        onPressed: atToday ? null : _goToToday,
-        child: Text(
-          '오늘',
-          style: TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: atToday
-                ? WolodyColors.of(context).textSecondary
-                : WolodyColors.brandBlue,
+      child: Pressable(
+        enabled: !atToday,
+        child: CupertinoButton(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          minimumSize: const Size(0, 30),
+          color: surface,
+          disabledColor: surface,
+          borderRadius: BorderRadius.circular(15),
+          onPressed: atToday ? null : _goToToday,
+          child: Text(
+            '오늘',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: atToday
+                  ? WolodyColors.of(context).textSecondary
+                  : WolodyColors.brandBlue,
+            ),
           ),
         ),
       ),
@@ -395,44 +453,47 @@ class _CalendarScreenState extends State<CalendarScreen> {
     final isSelected = day == _selected;
     final isToday = day == _dateOnly(DateTime.now());
     final mood = _moodOf(day);
-    return GestureDetector(
-      onTap: () {
-        Haptics.selection();
-        setState(() => _selected = day);
-      },
-      behavior: HitTestBehavior.opaque,
-      child: Container(
-        height: _cellHeight,
-        margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
-        decoration: BoxDecoration(
-          color: isSelected ? WolodyColors.of(context).daySelected : null,
-          border: isSelected
-              ? Border.all(color: WolodyColors.brandBlue, width: 1)
-              : null,
-          borderRadius: BorderRadius.circular(8),
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.start,
-          children: [
-            const SizedBox(height: 6),
-            Text(
-              '${day.day}',
-              style: TextStyle(
-                fontSize: 15,
-                fontWeight: isToday || isSelected
-                    ? FontWeight.w700
-                    : FontWeight.w400,
-                color: isSelected
-                    ? WolodyColors.brandBlue
-                    : WolodyColors.of(context).textPrimary,
+    return Pressable(
+      scale: 0.9,
+      child: GestureDetector(
+        onTap: () {
+          Haptics.selection();
+          setState(() => _selected = day);
+        },
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          height: _cellHeight,
+          margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
+          decoration: BoxDecoration(
+            color: isSelected ? WolodyColors.of(context).daySelected : null,
+            border: isSelected
+                ? Border.all(color: WolodyColors.brandBlue, width: 1)
+                : null,
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.start,
+            children: [
+              const SizedBox(height: 6),
+              Text(
+                '${day.day}',
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: isToday || isSelected
+                      ? FontWeight.w700
+                      : FontWeight.w400,
+                  color: isSelected
+                      ? WolodyColors.brandBlue
+                      : WolodyColors.of(context).textPrimary,
+                ),
               ),
-            ),
-            // 기록한 날은 그날 고른 감정의 울디 얼굴을 숫자 아래에 미리 보여준다.
-            if (mood != null) ...[
-              const SizedBox(height: 2),
-              WooldyMoodPortrait(faceIndex: mood.faceIndex, size: 24),
+              // 기록한 날은 그날 고른 감정의 울디 얼굴을 숫자 아래에 미리 보여준다.
+              if (mood != null) ...[
+                const SizedBox(height: 2),
+                WooldyMoodPortrait(faceIndex: mood.faceIndex, size: 24),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );

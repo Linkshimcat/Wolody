@@ -8,6 +8,7 @@ import '../services/auth_service.dart';
 import '../services/haptics.dart';
 import '../theme.dart';
 import '../widgets/wolody_toast.dart';
+import '../widgets/pressable.dart';
 
 /// Figma "로그인" 화면. 구글·카카오 인앱 로그인 버튼을 보여준다.
 ///
@@ -32,13 +33,25 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
   bool _leftApp = false;
   Timer? _returnCheck;
 
-  bool _showCanceledToast = false;
+  bool _showToast = false;
+  String _toastMessage = '';
+  IconData _toastIcon = CupertinoIcons.exclamationmark_circle_fill;
   Timer? _toastTimer;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // 탈퇴처럼 로그인 화면으로 돌아오며 남긴 안내가 있으면 한 번 보여 준다.
+    final notice = AuthService.pendingNotice;
+    if (notice != null) {
+      AuthService.pendingNotice = null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          _toast(notice, CupertinoIcons.heart_fill, const Duration(seconds: 3));
+        }
+      });
+    }
   }
 
   @override
@@ -83,7 +96,7 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     _toastTimer?.cancel();
     setState(() {
       _loading = provider;
-      _showCanceledToast = false;
+      _showToast = false;
     });
     try {
       final signedIn = await AuthService.signIn(provider);
@@ -108,11 +121,21 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
     }
   }
 
-  void _showCanceled() {
-    setState(() => _showCanceledToast = true);
+  void _showCanceled() => _toast(
+    '로그인이 취소됐어요. 다시 로그인해 주세요.',
+    CupertinoIcons.exclamationmark_circle_fill,
+    const Duration(milliseconds: 2500),
+  );
+
+  void _toast(String message, IconData icon, Duration duration) {
+    setState(() {
+      _toastMessage = message;
+      _toastIcon = icon;
+      _showToast = true;
+    });
     _toastTimer?.cancel();
-    _toastTimer = Timer(const Duration(milliseconds: 2500), () {
-      if (mounted) setState(() => _showCanceledToast = false);
+    _toastTimer = Timer(duration, () {
+      if (mounted) setState(() => _showToast = false);
     });
   }
 
@@ -230,9 +253,9 @@ class _LoginScreenState extends State<LoginScreen> with WidgetsBindingObserver {
             right: 24,
             child: IgnorePointer(
               child: WolodyToast(
-                visible: _showCanceledToast,
-                icon: CupertinoIcons.exclamationmark_circle_fill,
-                message: '로그인이 취소됐어요. 다시 로그인해 주세요.',
+                visible: _showToast,
+                icon: _toastIcon,
+                message: _toastMessage,
               ),
             ),
           ),
@@ -263,39 +286,41 @@ class _LoginButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = WolodyColors.of(context);
-    return Container(
-      width: double.infinity,
-      height: 60,
-      // 라이트 배경에서는 흰 구글 버튼이 배경에 묻히지 않게 테두리를 두른다.
-      foregroundDecoration:
-          colors.isLight && background == CupertinoColors.white
-          ? BoxDecoration(
-              borderRadius: BorderRadius.circular(30),
-              border: Border.all(color: colors.outline),
-            )
-          : null,
-      child: CupertinoButton(
-        padding: EdgeInsets.zero,
-        color: background,
-        borderRadius: BorderRadius.circular(30),
-        onPressed: onPressed,
-        child: loading
-            ? CupertinoActivityIndicator(color: foreground)
-            : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  logo,
-                  const SizedBox(width: 14),
-                  Text(
-                    label,
-                    style: TextStyle(
-                      color: foreground,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w600,
+    return Pressable(
+      child: Container(
+        width: double.infinity,
+        height: 60,
+        // 라이트 배경에서는 흰 구글 버튼이 배경에 묻히지 않게 테두리를 두른다.
+        foregroundDecoration:
+            colors.isLight && background == CupertinoColors.white
+            ? BoxDecoration(
+                borderRadius: BorderRadius.circular(30),
+                border: Border.all(color: colors.outline),
+              )
+            : null,
+        child: CupertinoButton(
+          padding: EdgeInsets.zero,
+          color: background,
+          borderRadius: BorderRadius.circular(30),
+          onPressed: onPressed,
+          child: loading
+              ? CupertinoActivityIndicator(color: foreground)
+              : Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    logo,
+                    const SizedBox(width: 14),
+                    Text(
+                      label,
+                      style: TextStyle(
+                        color: foreground,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
+        ),
       ),
     );
   }

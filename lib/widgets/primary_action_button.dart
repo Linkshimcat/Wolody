@@ -4,6 +4,7 @@ import 'package:flutter/cupertino.dart';
 
 import '../services/haptics.dart';
 import '../theme.dart';
+import 'pressable.dart';
 
 /// Figma의 라벤더 CTA 버튼.
 ///
@@ -14,11 +15,15 @@ class PrimaryActionButton extends StatefulWidget {
   final VoidCallback? onPressed;
   final double height;
 
+  /// 버튼 색. 비우면 화면 모드의 기본 CTA 색을 쓴다(탈퇴처럼 위험한 동작은 빨강).
+  final Color? color;
+
   const PrimaryActionButton({
     super.key,
     required this.label,
     required this.onPressed,
     this.height = 58,
+    this.color,
   });
 
   @override
@@ -46,7 +51,7 @@ class _PrimaryActionButtonState extends State<PrimaryActionButton>
   @override
   Widget build(BuildContext context) {
     final enabled = widget.onPressed != null;
-    final background = WolodyColors.of(context).ctaBackground;
+    final background = widget.color ?? WolodyColors.of(context).ctaBackground;
     return AnimatedBuilder(
       animation: _shake,
       builder: (context, child) {
@@ -58,21 +63,25 @@ class _PrimaryActionButtonState extends State<PrimaryActionButton>
       child: GestureDetector(
         // 비활성 CupertinoButton은 탭을 받지 않으므로 바깥에서 대신 받는다.
         onTap: enabled ? null : _rejectTap,
-        child: SizedBox(
-          width: double.infinity,
-          height: widget.height,
-          child: CupertinoButton(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            borderRadius: BorderRadius.circular(17),
-            color: background,
-            disabledColor: background.withValues(alpha: 0.45),
-            onPressed: widget.onPressed,
-            child: Text(
-              widget.label,
-              style: const TextStyle(
-                color: CupertinoColors.white,
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
+        // 누를 수 있을 때만 눌리는 손맛을 준다. 비활성일 땐 흔들림이 대신한다.
+        child: Pressable(
+          enabled: enabled,
+          child: SizedBox(
+            width: double.infinity,
+            height: widget.height,
+            child: CupertinoButton(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              borderRadius: BorderRadius.circular(17),
+              color: background,
+              disabledColor: background.withValues(alpha: 0.45),
+              onPressed: widget.onPressed,
+              child: Text(
+                widget.label,
+                style: const TextStyle(
+                  color: CupertinoColors.white,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
             ),
           ),

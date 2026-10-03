@@ -12,6 +12,7 @@ import '../widgets/mood_card.dart';
 import '../widgets/skeleton.dart';
 import '../widgets/primary_action_button.dart';
 import 'reminder_screen.dart';
+import '../widgets/pressable.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -174,6 +175,12 @@ class _HomeScreenState extends State<HomeScreen> {
     if (await editMoodEntry(context, entry)) await _load();
   }
 
+  /// 완료 배너를 누르면 축하 파티클이 한 번 더 터진다.
+  void _cheer() {
+    Haptics.light();
+    MoodEvents.cheer.value++;
+  }
+
   void _openReminderSettings() {
     Haptics.light();
     // 알림을 켜고 돌아오면 ReminderSettings.current가 바뀌면서 배너가 사라진다.
@@ -202,7 +209,8 @@ class _HomeScreenState extends State<HomeScreen> {
     // 오늘 기록했으면 완료 배너를, 아직이면 알림을 켜지 않은 사람에게만 알림 배너를 띄운다.
     final reminderOff = ReminderSettings.current.value?.enabled == false;
     final showBanner = !_bannerDismissed && (recordedToday || reminderOff);
-    final contentTop = showBanner ? 30.0 : 18.0;
+    // 배너 아래 여백은 배너 쪽에 넣어 두어, 배너가 접히면 여백도 함께 접힌다.
+    const contentTop = 18.0;
     return CupertinoPageScaffold(
       backgroundColor: WolodyColors.of(context).background,
       child: CustomScrollView(
@@ -223,22 +231,34 @@ class _HomeScreenState extends State<HomeScreen> {
             refreshTriggerPullDistance: 140 + topInset,
             builder: _buildRefreshIndicator,
           ),
-          if (showBanner)
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.fromLTRB(
-                  24,
-                  recordedToday ? 18 : 35,
-                  24,
-                  0,
-                ),
-                child: _HomeBanner(
-                  completed: recordedToday,
-                  onTap: recordedToday ? null : _openReminderSettings,
-                  onClose: () => setState(() => _bannerDismissed = true),
-                ),
-              ),
+          SliverToBoxAdapter(
+            // X를 누르면 배너가 작아지고 흐려지며 접히고, 아래 카드들이 따라 올라온다.
+            child: _CollapsingBanner(
+              visible: showBanner,
+              child: showBanner
+                  ? Padding(
+                      padding: EdgeInsets.fromLTRB(
+                        24,
+                        recordedToday ? 18 : 35,
+                        24,
+                        12,
+                      ),
+                      // 방금 기록해서 완료 배너로 바뀐 순간에만 폴짝 튀어나온다.
+                      child: _PopIn(
+                        key: ValueKey(recordedToday),
+                        enabled: recordedToday && MoodEvents.justRecorded,
+                        child: _HomeBanner(
+                          completed: recordedToday,
+                          streak: MoodEntry.streak(_entries),
+                          onTap: recordedToday ? _cheer : _openReminderSettings,
+                          onClose: () =>
+                              setState(() => _bannerDismissed = true),
+                        ),
+                      ),
+                    )
+                  : null,
             ),
+          ),
           // 동기화는 알림 없이 뒤에서 조용히 돈다. 다만 새 기기에서 처음 로그인해
           // 아직 받아온 기록이 없을 때는 빈 화면 대신 카드 모양 스켈레톤을 보여준다.
           if (_loading || (_entries.isEmpty && MoodStorage.syncing.value))
@@ -438,15 +458,111 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
+/// 홈 배너 자리. [visible]이 꺼지면 배너가 작아지고 흐려지면서 높이까지 접혀,
+/// 아래 카드들이 자연스럽게 따라 올라온다. 다시 켜질 때는 바로 보여준다.
+class _CollapsingBanner extends StatefulWidget {
+  final bool visible;
+  final Widget? child;
+
+  const _CollapsingBanner({required this.visible, required this.child});
+
+  @override
+  State<_CollapsingBanner> createState() => _CollapsingBannerState();
+}
+
+class _CollapsingBannerState extends State<_CollapsingBanner>
+    with SingleTickerProviderStateMixin {
+  late final _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 380),
+    value: widget.visible ? 1 : 0,
+  );
+
+  /// 접히는 동안에도 사라진 배너를 그려야 해서 마지막 모습을 기억해 둔다.
+  Widget? _lastChild;
+
+  @override
+  void didUpdateWidget(_CollapsingBanner oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.visible == oldWidget.visible) return;
+    if (widget.visible) {
+      _controller.value = 1;
+    } else if (MediaQuery.disableAnimationsOf(context)) {
+      _controller.value = 0;
+    } else {
+      _controller.reverse();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.child != null) _lastChild = widget.child;
+    final child = _lastChild;
+    if (child == null) return const SizedBox.shrink();
+    // 높이는 끝까지 부드럽게 접히고, 모습은 앞쪽에서 먼저 줄어들며 사라진다.
+    final size = CurvedAnimation(
+      parent: _controller,
+      curve: Curves.easeInOutCubic,
+    );
+    final fade = CurvedAnimation(
+      parent: _controller,
+      curve: const Interval(0.35, 1, curve: Curves.easeOut),
+    );
+    return SizeTransition(
+      sizeFactor: size,
+      alignment: Alignment.topCenter,
+      child: FadeTransition(
+        opacity: fade,
+        child: ScaleTransition(
+          scale: Tween<double>(begin: 0.9, end: 1).animate(fade),
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+
+/// 처음 그려질 때 살짝 작은 크기에서 통 튀어나온다. [enabled]가 false면 그대로 그린다.
+class _PopIn extends StatelessWidget {
+  final bool enabled;
+  final Widget child;
+
+  const _PopIn({super.key, required this.enabled, required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    if (!enabled || MediaQuery.disableAnimationsOf(context)) return child;
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0.85, end: 1),
+      duration: const Duration(milliseconds: 560),
+      curve: Curves.easeOutBack,
+      builder: (context, scale, child) =>
+          Transform.scale(scale: scale, child: child),
+      child: child,
+    );
+  }
+}
+
 class _HomeBanner extends StatelessWidget {
   final bool completed;
 
-  /// 배너를 눌렀을 때. 알림 배너는 알림 설정 화면으로 보낸다.
+  /// 오늘까지 이어서 기록한 날 수. 완료 배너에 보여준다.
+  final int streak;
+
+  /// 배너를 눌렀을 때. 알림 배너는 알림 설정 화면으로 보내고,
+  /// 완료 배너는 축하 파티클을 한 번 더 터뜨린다.
   final VoidCallback? onTap;
   final VoidCallback onClose;
 
   const _HomeBanner({
     required this.completed,
+    required this.streak,
     this.onTap,
     required this.onClose,
   });
@@ -493,10 +609,27 @@ class _HomeBanner extends StatelessWidget {
                     style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
                   ),
                 const SizedBox(height: 3),
-                Text(
-                  completed ? '연속 1일차에 도전 중입니다' : '울디가 매일 마음 기록을 챙겨줄게요.',
-                  style: TextStyle(fontSize: 11, color: colors.textSecondary),
-                ),
+                if (completed)
+                  // 연속 기록 숫자는 0부터 올라가며 나타난다.
+                  TweenAnimationBuilder<double>(
+                    tween: Tween(begin: 0, end: streak.toDouble()),
+                    duration: MediaQuery.disableAnimationsOf(context)
+                        ? Duration.zero
+                        : const Duration(milliseconds: 700),
+                    curve: Curves.easeOutCubic,
+                    builder: (context, shown, _) => Text(
+                      '연속 ${shown.round()}일차에 도전 중입니다',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: colors.textSecondary,
+                      ),
+                    ),
+                  )
+                else
+                  Text(
+                    '울디가 매일 마음 기록을 챙겨줄게요.',
+                    style: TextStyle(fontSize: 11, color: colors.textSecondary),
+                  ),
               ],
             ),
           ),
@@ -537,10 +670,12 @@ class _HomeBanner extends StatelessWidget {
       ),
     );
     if (onTap == null) return banner;
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: banner,
+    return Pressable(
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: banner,
+      ),
     );
   }
 }

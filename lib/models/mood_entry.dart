@@ -31,4 +31,21 @@ class MoodEntry {
     note: json['note'] as String? ?? '',
     imageFileName: json['imageFileName'] as String?,
   );
+
+  /// 오늘부터 거꾸로 하루도 빠짐없이 기록한 날 수. 오늘 기록이 없으면 0이다.
+  ///
+  /// 홈의 "오늘도 기록 완료!" 배너와 마이 페이지의 연속 출석이 같은 값을 쓴다.
+  static int streak(Iterable<MoodEntry> entries, {DateTime? today}) {
+    final days = entries
+        .map((e) => DateTime(e.date.year, e.date.month, e.date.day))
+        .toSet();
+    final now = today ?? DateTime.now();
+    var day = DateTime(now.year, now.month, now.day);
+    var count = 0;
+    while (days.contains(day)) {
+      count++;
+      day = DateTime(day.year, day.month, day.day - 1);
+    }
+    return count;
+  }
 }

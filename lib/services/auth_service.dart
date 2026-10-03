@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -13,10 +14,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'auth_config.dart';
+import 'live_activity_service.dart';
 import 'mood_storage.dart';
+import 'onboarding.dart';
+import 'photo_storage.dart';
 import 'profile_storage.dart';
 import 'supabase_config.dart';
 import 'trash_storage.dart';
+import 'widget_service.dart';
 
 enum LoginProvider { google, kakao }
 
@@ -279,12 +284,18 @@ class AuthService {
     String? rawNonce,
   }) async {
     try {
-      await _client.auth.signInWithIdToken(
+      final response = await _client.auth.signInWithIdToken(
         provider: provider,
         idToken: idToken,
         accessToken: accessToken,
         nonce: rawNonce,
       );
+      // 방금 가입한 계정이면 홈 대신 설정 단계부터 보여준다. AuthGate가 홈을
+      // 그리기 전에 알아야 해서, 세션을 받자마자 바로 표시해 둔다.
+      final user = response.user;
+      if (Onboarding.isFirstSignIn(user?.createdAt, user?.lastSignInAt)) {
+        unawaited(Onboarding.markNewAccount());
+      }
     } on AuthException catch (e) {
       throw LoginException('Wolody 계정을 만들지 못했어요. (${e.message})');
     }
@@ -310,6 +321,49 @@ class AuthService {
     await _client.auth.signOut();
     await MoodStorage.clearLocal();
     await ProfileStorage.resetLocal();
+  }
+
+  /// 로그인 화면에 한 번 띄울 안내(예: 탈퇴 완료). 로그인 화면이 읽고 비운다.
+  static String? pendingNotice;
+
+  /// 계정 탈퇴. 계정·기록·프로필·클라우드 사진을 지우고 이 기기의 사본도 비운다.
+  ///
+  /// 계정 삭제에는 서버 권한(service_role)이 필요해서 Edge Function
+  /// `delete-account`(supabase/functions/delete-account)가 처리한다.
+  /// 서버에서 실패하면 [LoginException]을 던지고 아무것도 지우지 않는다.
+  static Future<void> deleteAccount() async {
+    final provider = currentProvider;
+    try {
+      await _client.functions.invoke('delete-account');
+    } catch (_) {
+      throw const LoginException('탈퇴하지 못했어요. 잠시 후 다시 시도해 주세요.');
+    }
+    // 구글·카카오에 남은 Wolody 앱 연결도 끊는다. 실패해도 계정은 이미 지워졌다.
+    try {
+      if (provider == LoginProvider.google && _googleReady) {
+        await GoogleSignIn.instance.disconnect();
+      } else if (provider == LoginProvider.kakao && AuthConfig.kakaoReady) {
+        await kakao.UserApi.instance.unlink();
+      }
+    } catch (_) {}
+
+    // 서버의 사진은 이미 지웠으니 먼저 세션을 끊어 아래 정리가 클라우드를 건드리지 않게 한다.
+    final photos = MoodStorage.cache.value
+        .map((e) => e.imageFileName)
+        .whereType<String>()
+        .toList();
+    pendingNotice = '탈퇴했어요. 그동안 고마웠어요.';
+    try {
+      await _client.auth.signOut(scope: SignOutScope.local);
+    } catch (_) {}
+    for (final photo in photos) {
+      await PhotoStorage.delete(photo);
+    }
+    await TrashStorage.clear();
+    await MoodStorage.clearLocal();
+    await ProfileStorage.resetLocal();
+    await LiveActivityService.end();
+    await WidgetService.refresh();
   }
 
   /// 로그인한 계정의 제공자(구글/카카오).

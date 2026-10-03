@@ -13,6 +13,7 @@ import '../widgets/wolody_icon.dart';
 import 'profile_edit_screen.dart';
 import 'recap_screen.dart';
 import 'reminder_screen.dart';
+import '../widgets/pressable.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -51,21 +52,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     ).push(CupertinoPageRoute<void>(builder: (_) => const RecapScreen()));
   }
 
-  int get _streak {
-    final dates = _entries
-        .map(
-          (entry) =>
-              DateTime(entry.date.year, entry.date.month, entry.date.day),
-        )
-        .toSet();
-    var day = DateTime.now();
-    var count = 0;
-    while (dates.contains(DateTime(day.year, day.month, day.day))) {
-      count++;
-      day = day.subtract(const Duration(days: 1));
-    }
-    return count;
-  }
+  int get _streak => MoodEntry.streak(_entries);
 
   int get _maxMoodCount {
     final counts = <String, int>{};
@@ -154,33 +141,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   child: Column(
                     children: [
                       // 사진·닉네임 줄을 누르면 프로필 수정으로 간다.
-                      GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: _openProfileEdit,
-                        child: Row(
-                          children: [
-                            const ProfileAvatar(size: 44),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: ValueListenableBuilder<UserProfile>(
-                                valueListenable: ProfileStorage.profile,
-                                builder: (context, profile, _) => Text(
-                                  profile.nickname,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: const TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
+                      Pressable(
+                        scale: 0.97,
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onTap: _openProfileEdit,
+                          child: Row(
+                            children: [
+                              const ProfileAvatar(size: 44),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: ValueListenableBuilder<UserProfile>(
+                                  valueListenable: ProfileStorage.profile,
+                                  builder: (context, profile, _) => Text(
+                                    profile.nickname,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w600,
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                            Icon(
-                              CupertinoIcons.chevron_right,
-                              size: 18,
-                              color: WolodyColors.of(context).textSecondary,
-                            ),
-                          ],
+                              Icon(
+                                CupertinoIcons.chevron_right,
+                                size: 18,
+                                color: WolodyColors.of(context).textSecondary,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                       const SizedBox(height: 34),
@@ -188,19 +178,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         children: [
                           _ProfileStat(
                             label: '연속 출석',
-                            value: '$_streak',
+                            value: _streak,
                             icon: 'iconsax-tick-circle.svg',
                           ),
                           const SizedBox(width: 8),
                           _ProfileStat(
                             label: '총 기록 수',
-                            value: '${_entries.length}',
+                            value: _entries.length,
                             icon: 'iconsax-note.svg',
                           ),
                           const SizedBox(width: 8),
                           _ProfileStat(
                             label: '최다 감정',
-                            value: '$_maxMoodCount',
+                            value: _maxMoodCount,
                             icon: 'iconsax-emoji-normal.svg',
                           ),
                         ],
@@ -218,32 +208,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   child: GestureDetector(
                     behavior: HitTestBehavior.opaque,
                     onTap: _openRecap,
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 6),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Flexible(
-                            child: ValueListenableBuilder<UserProfile>(
-                              valueListenable: ProfileStorage.profile,
-                              builder: (context, profile, _) => Text(
-                                '${profile.nickname}의 리캡',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  fontFamily: 'BM Jua',
-                                  fontSize: 22,
+                    child: Pressable(
+                      scale: 0.97,
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 6),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Flexible(
+                              child: ValueListenableBuilder<UserProfile>(
+                                valueListenable: ProfileStorage.profile,
+                                builder: (context, profile, _) => Text(
+                                  '${profile.nickname}의 리캡',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    fontFamily: 'BM Jua',
+                                    fontSize: 22,
+                                  ),
                                 ),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 6),
-                          Icon(
-                            CupertinoIcons.chevron_right,
-                            size: 20,
-                            color: WolodyColors.of(context).textPrimary,
-                          ),
-                        ],
+                            const SizedBox(width: 6),
+                            Icon(
+                              CupertinoIcons.chevron_right,
+                              size: 20,
+                              color: WolodyColors.of(context).textPrimary,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -278,7 +271,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
 class _ProfileStat extends StatelessWidget {
   final String label;
-  final String value;
+  final int value;
   final String icon;
 
   const _ProfileStat({
@@ -324,12 +317,22 @@ class _ProfileStat extends StatelessWidget {
             // 숫자는 라벨 아래 남은 영역의 한가운데에 둔다.
             Expanded(
               child: Center(
-                child: Text(
-                  value,
-                  style: const TextStyle(
-                    color: WolodyColors.brandBlue,
-                    fontSize: 32,
-                    fontWeight: FontWeight.w700,
+                // 0부터 숫자가 올라간다. 값이 바뀌면 이전 값에서 이어서 올라간다.
+                child: TweenAnimationBuilder<double>(
+                  tween: Tween(begin: 0, end: value.toDouble()),
+                  duration: MediaQuery.disableAnimationsOf(context)
+                      ? Duration.zero
+                      : const Duration(milliseconds: 700),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, shown, _) => Text(
+                    '${shown.round()}',
+                    style: const TextStyle(
+                      color: WolodyColors.brandBlue,
+                      fontSize: 32,
+                      fontWeight: FontWeight.w700,
+                      // 숫자가 바뀌는 동안 폭이 흔들리지 않게 고정폭 숫자를 쓴다.
+                      fontFeatures: [FontFeature.tabularFigures()],
+                    ),
                   ),
                 ),
               ),

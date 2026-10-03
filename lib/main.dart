@@ -13,6 +13,7 @@ import 'screens/root_screen.dart';
 import 'screens/splash_screen.dart';
 import 'services/appearance_settings.dart';
 import 'services/notification_service.dart';
+import 'services/onboarding.dart';
 import 'services/auth_service.dart';
 import 'services/live_activity_service.dart';
 import 'services/photo_storage.dart';
@@ -54,6 +55,8 @@ Future<void> _initializeApp() async {
   await ProfileStorage.load();
   // 개발용 "로그인 없이 둘러보기"를 켜 뒀다면 바로 앱으로 들어간다.
   await AuthService.loadGuest();
+  // 처음 설치면 소개, 방금 가입한 계정이면 설정 단계를 보여줄지 읽어 둔다.
+  await Onboarding.load();
   // 다른 기기에서 바꾼 프로필이 있을 수 있으니 계정 사본을 뒤에서 가져온다.
   if (AuthService.currentUser != null) {
     unawaited(ProfileStorage.pullFromCloud());

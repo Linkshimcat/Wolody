@@ -9,6 +9,27 @@ import 'widget_service.dart';
 import 'photo_storage.dart';
 import 'trash_storage.dart';
 
+/// 기록과 관련해 화면 여러 곳이 함께 반응해야 하는 일을 알린다.
+abstract final class MoodEvents {
+  /// 새 기록을 저장할 때마다 그 기록이 들어온다. 어디서 기록했든(탭 바 [+],
+  /// 홈의 기록하기 버튼) RootScreen이 듣고 토스트와 축하 모션을 보여준다.
+  static final recorded = ValueNotifier<MoodEntry?>(null);
+
+  /// 값이 바뀔 때마다 축하 파티클만 한 번 더 터뜨린다(토스트 없이).
+  /// 홈의 "오늘도 기록 완료!" 배너를 누르면 올린다.
+  static final cheer = ValueNotifier<int>(0);
+
+  /// 마지막으로 기록한 시각. 홈 배너가 방금 기록했는지 판단하는 데 쓴다.
+  static DateTime? recordedAt;
+
+  /// 방금(몇 초 안에) 기록했는지.
+  static bool get justRecorded {
+    final at = recordedAt;
+    return at != null &&
+        DateTime.now().difference(at) < const Duration(seconds: 3);
+  }
+}
+
 /// 새 기록 시트를 열고 저장까지 처리한다. 실제로 기록됐으면 true.
 ///
 /// 햅틱은 버튼을 누른 쪽(홈·탭 바·달력)에서 이미 주므로 여기서는 주지 않는다.
@@ -25,17 +46,17 @@ Future<bool> createMoodEntry(BuildContext context) async {
   final imageFileName = result.imagePath == null
       ? null
       : await PhotoStorage.save(result.imagePath!);
-  entries.insert(
-    0,
-    MoodEntry(
-      id: DateTime.now().microsecondsSinceEpoch.toString(),
-      date: DateTime.now(),
-      emojis: result.moods.map((m) => m.emoji).toList(),
-      note: result.note,
-      imageFileName: imageFileName,
-    ),
+  final entry = MoodEntry(
+    id: DateTime.now().microsecondsSinceEpoch.toString(),
+    date: DateTime.now(),
+    emojis: result.moods.map((m) => m.emoji).toList(),
+    note: result.note,
+    imageFileName: imageFileName,
   );
+  entries.insert(0, entry);
   await storage.save(entries);
+  MoodEvents.recordedAt = DateTime.now();
+  MoodEvents.recorded.value = entry;
   if (imageFileName != null) await PhotoStorage.upload(imageFileName);
   await LiveActivityService.refresh();
   await WidgetService.refresh();

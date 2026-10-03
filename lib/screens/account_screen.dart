@@ -11,7 +11,9 @@ import '../services/trash_storage.dart';
 import '../theme.dart';
 import '../widgets/profile_avatar.dart';
 import '../widgets/wolody_top_bar.dart';
+import 'delete_account_screen.dart';
 import 'profile_edit_screen.dart';
+import '../widgets/pressable.dart';
 
 /// 설정 → 계정 정보. 로그인 전에는 프로필과 이 기기에 저장된 데이터를 관리한다.
 class AccountScreen extends StatefulWidget {
@@ -37,6 +39,14 @@ class _AccountScreenState extends State<AccountScreen> {
       context,
       rootNavigator: true,
     ).push(CupertinoPageRoute<void>(builder: (_) => const ProfileEditScreen()));
+  }
+
+  void _openDeleteAccount() {
+    Haptics.light();
+    // 아래쪽 탈퇴 버튼이 탭 바에 가리지 않도록 탭 밖(루트)에서 띄운다.
+    Navigator.of(context, rootNavigator: true).push(
+      CupertinoPageRoute<void>(builder: (_) => const DeleteAccountScreen()),
+    );
   }
 
   Future<void> _confirmSignOut() async {
@@ -191,6 +201,35 @@ class _AccountScreenState extends State<AccountScreen> {
             ],
           ),
         ),
+        const SizedBox(height: 12),
+        _row(
+          onTap: _openDeleteAccount,
+          child: const Row(
+            children: [
+              Icon(
+                CupertinoIcons.person_crop_circle_badge_xmark,
+                size: 20,
+                color: CupertinoColors.systemRed,
+              ),
+              SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  '계정 탈퇴',
+                  style: TextStyle(
+                    color: CupertinoColors.systemRed,
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Icon(
+                CupertinoIcons.chevron_right,
+                size: 18,
+                color: CupertinoColors.systemRed,
+              ),
+            ],
+          ),
+        ),
         const SizedBox(height: 34),
       ],
     );
@@ -230,17 +269,20 @@ class _AccountScreenState extends State<AccountScreen> {
   );
 
   Widget _row({required Widget child, VoidCallback? onTap}) {
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        decoration: BoxDecoration(
-          color: WolodyColors.of(context).surfaceRaised,
-          borderRadius: BorderRadius.circular(14),
-          boxShadow: WolodyColors.of(context).cardShadow,
+    return Pressable(
+      enabled: onTap != null,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            color: WolodyColors.of(context).surfaceRaised,
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: WolodyColors.of(context).cardShadow,
+          ),
+          child: child,
         ),
-        child: child,
       ),
     );
   }
