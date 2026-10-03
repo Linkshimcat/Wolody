@@ -1,17 +1,15 @@
 # Wolody
 
-<img width="2000" height="500" alt="Wolody 배너" src="https://github.com/user-attachments/assets/6005d6bb-d7b1-42ef-907e-a9c7fdc6aecc" />
-
 ## 왜 만들었냐면
 
-- Flutter랑 좀 더 친해지고 싶어서 만들었어요. 미림 소프트웨어 챌린지에 낼 앱의 축소판이자 테스트 버전이에요.
+- Flutter랑 좀 더 친해지고 싶어서 만들었어요. (개인 프로젝트용).
 - Wolody는 하루 기분을 기록하는 앱이에요. 감정을 고르고, 짧게 글 쓰고, 사진도 붙일 수 있어요.
 - UI는 Google의 Material Design 대신 Apple iOS 26+의 Liquid Glass 느낌으로 만들었어요.
 
 ## 기능
 
 - 탭: 홈 | 기록 | 마이 | +
-- Google · 카카오 로그인
+- 계정 로그인 방식: Google · 카카오 로그인
 - 감정 선택 + 메모 + 사진으로 오늘 기록 남기기
 - 달력으로 지난 기록 보기
 - 마이 페이지에서 Wolody 리캡 보기
