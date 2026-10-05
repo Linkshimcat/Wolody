@@ -17,6 +17,7 @@ import 'services/onboarding.dart';
 import 'services/auth_service.dart';
 import 'services/live_activity_service.dart';
 import 'services/photo_storage.dart';
+import 'services/popup_tracker.dart';
 import 'services/profile_storage.dart';
 import 'services/supabase_config.dart';
 import 'services/widget_service.dart';
@@ -91,6 +92,8 @@ class MyApp extends StatelessWidget {
         locale: const Locale('ko', 'KR'),
         supportedLocales: const [Locale('ko', 'KR')],
         localizationsDelegates: GlobalMaterialLocalizations.delegates,
+        // 대화상자가 떠 있는지 세어 iOS 네이티브 유리 뷰를 잠시 숨긴다.
+        navigatorObservers: [PopupTracker()],
         theme: CupertinoThemeData(
           // null이면 iOS 설정의 라이트/다크를 따라간다.
           brightness: mode.brightness,

@@ -67,6 +67,13 @@ class LiveUpdateBridge private constructor(private val context: Context) :
                 result.success(null)
             }
             "start", "update" -> {
+                // iOS처럼 update는 이미 떠 있을 때만 내용을 바꾼다. 설정에서 켜지 않았는데
+                // 기록할 때마다 알림이 새로 뜨면 안 된다.
+                if (call.method == "update" &&
+                    manager.activeNotifications.none { it.id == NOTIFICATION_ID }
+                ) {
+                    return result.success(false)
+                }
                 try {
                     manager.notify(NOTIFICATION_ID, build(call.arguments as? Map<*, *>))
                     result.success(true)

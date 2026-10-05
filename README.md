@@ -1,10 +1,10 @@
 # Wolody
 
-## 왜 만들었냐면
+## 만든 이유는!?
 
 - Flutter랑 좀 더 친해지고 싶어서 만들었어요. (개인 프로젝트용).
 - Wolody는 하루 기분을 기록하는 앱이에요. 감정을 고르고, 짧게 글 쓰고, 사진도 붙일 수 있어요.
-- UI는 Google의 Material Design 대신 Apple iOS 26+의 Liquid Glass 느낌으로 만들었어요.
+- UI는 Apple iOS 26+의 Liquid Glass 느낌으로 만들었어요.
 
 ## 기능
 
@@ -15,6 +15,13 @@
 - 마이 페이지에서 Wolody 리캡 보기
 - 기록 알림(루틴), 라이트/다크 모드
 - 홈 화면 위젯, Live Activity (잠금 화면 · 다이나믹 아일랜드). 안드로이드는 Android 16+ Live Update 알림으로 떠요.
+
+### 앱 실행 미리보기 영상
+<video controls src="docs/IntroducingVidio.MP4" title="Title" width="200"></video>
+
+<hr>
+
+## In App 와이어프레임
 
 <div align="center">
   <table>

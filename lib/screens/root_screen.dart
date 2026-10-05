@@ -7,7 +7,9 @@ import '../services/auth_service.dart';
 import '../services/haptics.dart';
 import '../models/mood.dart';
 import '../services/mood_editor.dart';
+import '../services/live_activity_service.dart';
 import '../services/mood_storage.dart';
+import '../services/widget_service.dart';
 import '../services/platform_info.dart';
 import '../theme.dart';
 import '../widgets/celebration_burst.dart';
@@ -27,7 +29,7 @@ class RootScreen extends StatefulWidget {
   State<RootScreen> createState() => _RootScreenState();
 }
 
-class _RootScreenState extends State<RootScreen> {
+class _RootScreenState extends State<RootScreen> with WidgetsBindingObserver {
   static const _barHeight = 64.0;
 
   /// 네이티브 UITabBar의 자연 높이(intrinsicContentSize).
@@ -60,6 +62,9 @@ class _RootScreenState extends State<RootScreen> {
     });
     MoodEvents.recorded.addListener(_onRecorded);
     MoodEvents.cheer.addListener(_onCheer);
+    // 다른 기기에서 기록을 바꾸면 바로 받아 화면·위젯에 반영한다.
+    WidgetsBinding.instance.addObserver(this);
+    MoodStorage.watchCloud(onRemoteChange: _onRemoteChange);
     // 첫 가입 설정을 마치고 들어왔으면 환영 인사를 한 번 띄운다.
     final notice = AuthService.pendingNotice;
     if (notice != null) {
@@ -86,8 +91,24 @@ class _RootScreenState extends State<RootScreen> {
   void dispose() {
     MoodEvents.recorded.removeListener(_onRecorded);
     MoodEvents.cheer.removeListener(_onCheer);
+    WidgetsBinding.instance.removeObserver(this);
+    MoodStorage.stopWatching();
     _toastTimer?.cancel();
     super.dispose();
+  }
+
+  /// 앱을 다시 열면 닫혀 있는 동안 다른 기기에서 바뀐 기록을 받아온다.
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) return;
+    MoodStorage.syncToCloud().then((_) => _onRemoteChange());
+  }
+
+  /// 클라우드에서 기록이 바뀌었다. 목록은 MoodStorage.cache를 듣는 화면들이
+  /// 알아서 다시 그리고, 여기서는 홈 화면 위젯과 실시간 표시만 맞춘다.
+  void _onRemoteChange() {
+    WidgetService.refresh();
+    LiveActivityService.refresh();
   }
 
   /// 완료 배너를 누르면 오늘 고른 감정 색으로 파티클만 다시 터뜨린다.

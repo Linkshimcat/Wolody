@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 
+import '../services/popup_tracker.dart';
+
 /// iOS 26에서는 네이티브 Liquid Glass 스타일의 UISwitch를, 그 밖의
 /// 플랫폼에서는 CupertinoSwitch로 대체한 토글.
 class GlassSwitch extends StatefulWidget {
@@ -55,6 +57,26 @@ class _GlassSwitchState extends State<GlassSwitch> {
     if (!Platform.isIOS) {
       return CupertinoSwitch(value: widget.value, onChanged: widget.onChanged);
     }
+    // 대화상자가 떠 있는 동안에는 네이티브 스위치가 흐림 막 위로 비치지 않게
+    // Flutter 스위치로 잠시 바꾼다.
+    return ValueListenableBuilder<int>(
+      valueListenable: PopupTracker.open,
+      builder: (context, popups, _) => popups > 0
+          ? SizedBox(
+              width: 64,
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: CupertinoSwitch(
+                  value: widget.value,
+                  onChanged: widget.onChanged,
+                ),
+              ),
+            )
+          : _native(),
+    );
+  }
+
+  Widget _native() {
     return SizedBox(
       // iOS 26 UISwitch(63pt)까지 담는 크기. 네이티브 쪽에서 오른쪽 끝에 맞추므로
       // 폭이 더 좁은 예전 스위치도 오른쪽 여백이 똑같이 유지된다.
@@ -62,10 +84,7 @@ class _GlassSwitchState extends State<GlassSwitch> {
       height: 31,
       child: UiKitView(
         viewType: 'wolody/glass_switch',
-        creationParams: {
-          'value': widget.value,
-          'channelName': _channel.name,
-        },
+        creationParams: {'value': widget.value, 'channelName': _channel.name},
         creationParamsCodec: const StandardMessageCodec(),
       ),
     );

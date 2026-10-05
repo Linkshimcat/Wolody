@@ -5,6 +5,8 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
+import '../services/popup_tracker.dart';
+
 /// iOS에서는 네이티브 Liquid Glass 머티리얼을, 그 밖에서는 블러로 대체한 배경.
 ///
 /// Flutter는 자체 렌더러로 그리기 때문에 유리 재질을 직접 만들 수 없다.
@@ -28,7 +30,16 @@ class GlassSurface extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (!Platform.isIOS) return _fallback(context);
+    // 대화상자가 떠 있는 동안에는 네이티브 유리가 흐림 막 위로 비치지 않게
+    // Flutter로 그린 모양으로 바꾼다.
+    return ValueListenableBuilder<int>(
+      valueListenable: PopupTracker.open,
+      builder: (context, popups, _) =>
+          popups > 0 ? _fallback(context) : _native(),
+    );
+  }
 
+  Widget _native() {
     return Stack(
       // 유리와 그 위 내용이 모두 부모 크기를 그대로 채우게 한다.
       fit: StackFit.expand,
