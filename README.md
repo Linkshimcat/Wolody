@@ -17,7 +17,9 @@
 - 홈 화면 위젯, Live Activity (잠금 화면 · 다이나믹 아일랜드). 안드로이드는 Android 16+ Live Update 알림으로 떠요.
 
 ### 앱 실행 미리보기 영상
-<video controls src="docs/IntroducingVidio.MP4" title="Title" width="200"></video>
+<a href="docs/IntroducingVidio.MP4"><img src="docs/preview.webp" width="240" alt="Wolody 앱 실행 미리보기 (2배속)"></a>
+
+2배속 미리보기예요. 누르면 전체 영상(2분 20초)을 볼 수 있어요.
 
 <hr>
 
