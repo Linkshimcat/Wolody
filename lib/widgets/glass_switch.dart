@@ -3,8 +3,6 @@ import 'dart:io';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/services.dart';
 
-import '../services/popup_tracker.dart';
-
 /// iOS 26에서는 네이티브 Liquid Glass 스타일의 UISwitch를, 그 밖의
 /// 플랫폼에서는 CupertinoSwitch로 대체한 토글.
 class GlassSwitch extends StatefulWidget {
@@ -57,23 +55,7 @@ class _GlassSwitchState extends State<GlassSwitch> {
     if (!Platform.isIOS) {
       return CupertinoSwitch(value: widget.value, onChanged: widget.onChanged);
     }
-    // 대화상자가 떠 있는 동안에는 네이티브 스위치가 흐림 막 위로 비치지 않게
-    // Flutter 스위치로 잠시 바꾼다.
-    return ValueListenableBuilder<int>(
-      valueListenable: PopupTracker.open,
-      builder: (context, popups, _) => popups > 0
-          ? SizedBox(
-              width: 64,
-              child: Align(
-                alignment: Alignment.centerRight,
-                child: CupertinoSwitch(
-                  value: widget.value,
-                  onChanged: widget.onChanged,
-                ),
-              ),
-            )
-          : _native(),
-    );
+    return _native();
   }
 
   Widget _native() {
